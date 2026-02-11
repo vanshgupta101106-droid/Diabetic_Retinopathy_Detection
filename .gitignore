@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Jupyter Notebook
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+
+# VS Code
+.vscode/
+
+# Project Specific - Large Files
+data/
+models/
+reports/figures/
+!reports/figures/eda/  # Keep EDA figures if desired, but blocking for now to be safe. 
+# actually, usually we want to keep reports/figures but ignore data and models.
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

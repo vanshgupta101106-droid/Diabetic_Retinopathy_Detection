@@ -1,0 +1,22 @@
+name: diabetic_retinopathy
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - pyyaml
+  - scikit-learn
+  - opencv      # For cv2
+  - albumentations # Data augmentation
+  - tqdm
+  - ipykernel   # For Jupyter notebooks
+  - jupyter
+  - pytorch
+  - torchvision
+  - pytorch-cuda=12.4
+  - pip
