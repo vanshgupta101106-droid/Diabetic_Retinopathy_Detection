@@ -196,7 +196,12 @@ def plot_learning_curves(history: Dict[str, List[float]], save_folder: str = "ev
     
     # Identify available metrics
     metrics = [k for k in history.keys() if k.startswith("train_")]
-    n_plots = len(metrics)
+    
+    # Check for standalone validation metrics (like Kappa) that don't have a training counterpart
+    standalone_val = [k for k in history.keys() if k.startswith("val_") and f"train_{k[4:]}" not in metrics]
+    
+    all_metrics_to_plot = metrics + standalone_val
+    n_plots = len(all_metrics_to_plot)
     
     if n_plots == 0:
         return
@@ -205,19 +210,24 @@ def plot_learning_curves(history: Dict[str, List[float]], save_folder: str = "ev
     if n_plots == 1:
         axes = [axes]
         
-    epochs = range(1, len(history[metrics[0]]) + 1)
+    epochs = range(1, len(history[list(history.keys())[0]]) + 1)
     
     # Colors
     col_train = "#4B0082"  # Deep Purple
     col_val = "#FF8C00"    # Dark Orange
     
-    for ax, metric in zip(axes, metrics):
-        metric_name = metric.replace("train_", "")
-        val_metric = f"val_{metric_name}"
-        
-        ax.plot(epochs, history[metric], label=f"Train {metric_name}", color=col_train, linewidth=2)
-        if val_metric in history:
-            ax.plot(epochs, history[val_metric], label=f"Val {metric_name}", color=col_val, linewidth=2, linestyle="--")
+    for ax, metric in zip(axes, all_metrics_to_plot):
+        if metric.startswith("train_"):
+            metric_name = metric.replace("train_", "")
+            val_metric = f"val_{metric_name}"
+            
+            ax.plot(epochs, history[metric], label=f"Train {metric_name}", color=col_train, linewidth=2)
+            if val_metric in history:
+                ax.plot(epochs, history[val_metric], label=f"Val {metric_name}", color=col_val, linewidth=2, linestyle="--")
+        else:
+            # Standalone validation metric
+            metric_name = metric.replace("val_", "")
+            ax.plot(epochs, history[metric], label=f"Val {metric_name}", color=col_val, linewidth=2, linestyle="-")
             
         ax.set_title(f"{metric_name.capitalize()} Evolution")
         ax.set_xlabel("Epochs")

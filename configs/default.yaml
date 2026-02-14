@@ -4,9 +4,9 @@ version: "0.1.0"
 data:
   raw_path: "data"
   processed_path: "data/processed"
-  image_size: [512, 512]
+  image_size: [256, 256]
   batch_size: 32
-  num_workers: 4
+  num_workers: 0
   # Preprocessing
   crop_black_borders: true
   normalization: "imagenet" # or 'standard'
