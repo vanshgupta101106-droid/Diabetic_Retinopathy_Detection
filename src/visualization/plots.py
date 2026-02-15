@@ -22,6 +22,7 @@ import matplotlib as mpl
 import seaborn as sns
 import numpy as np
 import pandas as pd
+import cv2  # Added cv2 import
 from cycler import cycler
 from sklearn.metrics import confusion_matrix, roc_curve, auc, accuracy_score
 from matplotlib.colors import LinearSegmentedColormap
@@ -419,3 +420,159 @@ def plot_confidence_abstention_panel(
     plt.tight_layout()
     _save_plot(fig, f"{title_prefix}Confidence_Analysis", save_folder)
     return fig
+
+def plot_inference_result(
+    original_img: np.ndarray,
+    processed_img: np.ndarray,
+    heatmap: np.ndarray,
+    class_name: str,
+    confidence: float,
+    probs: Optional[np.ndarray] = None,
+    class_names: Optional[List[str]] = None,
+    true_label: Optional[str] = None,
+    save_folder: str = "inference",
+    vessel_mask: Optional[np.ndarray] = None,
+    quality_score: Optional[Any] = None,
+    patient_info: Optional[Dict[str, Any]] = None
+):
+    """
+    Visualizes inference result: Original, Processed, and Grad-CAM (Plasma).
+    """
+    # Create Figure with GridSpec
+    fig = plt.figure(figsize=(20, 10))
+    gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 1, 0.05])
+    
+    # Suptitle with Patient Info
+    if patient_info:
+        info_str = " | ".join([f"{k}: {v}" for k, v in patient_info.items()])
+        fig.suptitle(info_str, fontsize=16, y=0.98, fontweight='bold')
+    
+    ax_orig = fig.add_subplot(gs[0, 0])
+    ax_proc = fig.add_subplot(gs[0, 1])
+    ax_cam = fig.add_subplot(gs[0, 2])
+    # cbar ax is gs[0, 3] handled by colorbar
+    ax_probs = fig.add_subplot(gs[1, :3]) 
+    
+    # Ensure images are uint8
+    if original_img.dtype != np.uint8:
+        if original_img.max() <= 1.0:
+            original_img = (original_img * 255).astype(np.uint8)
+        else:
+            original_img = original_img.astype(np.uint8)
+
+    if processed_img.dtype != np.uint8:
+        if processed_img.max() <= 1.0:
+            processed_img = (processed_img * 255).astype(np.uint8)
+        else:
+             processed_img = processed_img.astype(np.uint8)
+
+    # 1. Original
+    ax_orig.imshow(original_img)
+    ax_orig.set_title("Original Input")
+    ax_orig.axis('off')
+    
+    # 2. Processed with Vessel Overlay
+    # Create an RGB version of the vessel mask (green)
+    display_proc = processed_img.copy()
+    
+    if vessel_mask is not None:
+        # Resize mask if needed
+        if vessel_mask.shape[:2] != processed_img.shape[:2]:
+            vessel_mask = cv2.resize(vessel_mask, (processed_img.shape[1], processed_img.shape[0]))
+            
+        # Create a purple overlay
+        # Normalize mask to 0-1
+        mask_norm = vessel_mask.astype(float) / 255.0 if vessel_mask.max() > 1 else vessel_mask.astype(float)
+        
+        # Overlay: Tint Deep Purple where vessels are present
+        overlay = display_proc.copy()
+        # Using Deep Purple: (75, 0, 130) but let's make it brighter for overlay: (147, 112, 219) MediumPurple 
+        # or pure magenta/purple (255, 0, 255) for contrast? 
+        # User asked for "same purple color as we did in notebook 1", which refers to the theme #4B0082.
+        # RGB: (75, 0, 130)
+        overlay[mask_norm > 0.5] = [75, 0, 130] 
+        
+        # Blend
+        cv2.addWeighted(overlay, 0.5, display_proc, 0.5, 0, display_proc)
+        
+    ax_proc.imshow(display_proc)
+    
+    proc_title = "Processed Input + Vessels"
+    if quality_score:
+        # Assuming quality_score is a dict or value
+        if isinstance(quality_score, dict):
+            qs = quality_score.get('vessel_density', 0)
+        else:
+            qs = quality_score
+        proc_title += f"\nVessel Density: {qs:.4f}"
+        
+    ax_proc.set_title(proc_title)
+    ax_proc.axis('off')
+    
+    # 3. Grad-CAM with Plasma
+    # Resize heatmap
+    heatmap_resized = cv2.resize(heatmap, (processed_img.shape[1], processed_img.shape[0]))
+    
+    # Normalize Heatmap (0-1)
+    heatmap_norm = (heatmap_resized - heatmap_resized.min()) / (heatmap_resized.max() - heatmap_resized.min() + 1e-8)
+    
+    # Background
+    processed_gray = cv2.cvtColor(processed_img, cv2.COLOR_RGB2GRAY)
+    ax_cam.imshow(processed_gray, cmap='gray') 
+    
+    # Overlay Heatmap
+    im = ax_cam.imshow(heatmap_norm, cmap='plasma', alpha=0.6)
+    
+    # Title Color Logic
+    theme_colors = ['#4B0082', '#762B98', '#A157AE', '#CC82C4', '#FF8C00']
+    
+    # Find index of predicted class
+    pred_idx = -1
+    if class_names and class_name in class_names:
+        pred_idx = class_names.index(class_name)
+    
+    title_color = 'black'
+    if pred_idx >= 0 and pred_idx < len(theme_colors):
+        title_color = theme_colors[pred_idx]
+        
+    title = f"Pred: {class_name}\nConf: {confidence:.1%}"
+    
+    if true_label:
+        if true_label != class_name:
+            title += f" (True: {true_label})"
+            # If wrong, maybe use Red? Or keep class color?
+            # User said: "make it of the color associated to the predicted class"
+            pass
+            
+    # Set title with the predicted class color
+    t = ax_cam.set_title(title, fontsize=14, fontweight='bold')
+    t.set_color(title_color)
+    
+    ax_cam.axis('off')
+    
+    # Colorbar
+    ax_cbar = fig.add_subplot(gs[0, 3])
+    plt.colorbar(im, cax=ax_cbar)
+    
+    # 4. Probabilities
+    if probs is not None and class_names is not None:
+        bars = ax_probs.bar(class_names, probs, color=theme_colors, alpha=0.8)
+        ax_probs.set_ylim(0, 1.1)
+        ax_probs.set_title("Prediction Confidence by Class")
+        ax_probs.grid(axis='y', alpha=0.3)
+        ax_probs.spines['top'].set_visible(False)
+        ax_probs.spines['right'].set_visible(False)
+        
+        for bar in bars:
+            height = bar.get_height()
+            ax_probs.text(bar.get_x() + bar.get_width()/2., height + 0.02,
+                        f'{height:.1%}', ha='center', va='bottom', fontweight='bold')
+    else:
+        ax_probs.axis('off')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust for suptitle
+
+    # Unique filename based on class and confidence (avoid overwriting)
+    _save_plot(fig, f"Inference_{class_name}_{confidence:.2f}_{np.random.randint(0,1000)}", save_folder)
+    return fig
+
