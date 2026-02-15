@@ -17,6 +17,11 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 MODELS_DIR = PROJECT_ROOT / "models"
 
+# Quality Control Threshold
+# Images with a vessel density score below this value will be excluded 
+# when quality filtering is enabled.
+QUALITY_THRESHOLD = 0.0583  # Based on 5th percentile analysis
+
 # Ensure directories exist
 PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)

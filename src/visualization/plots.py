@@ -24,7 +24,16 @@ import numpy as np
 import pandas as pd
 import cv2  # Added cv2 import
 from cycler import cycler
-from sklearn.metrics import confusion_matrix, roc_curve, auc, accuracy_score
+from sklearn.metrics import (
+    confusion_matrix, 
+    roc_curve, 
+    auc, 
+    accuracy_score, 
+    precision_score, 
+    recall_score, 
+    f1_score, 
+    roc_auc_score
+)
 from matplotlib.colors import LinearSegmentedColormap
 from scipy import stats
 
@@ -538,11 +547,8 @@ def plot_inference_result(
     title = f"Pred: {class_name}\nConf: {confidence:.1%}"
     
     if true_label:
-        if true_label != class_name:
-            title += f" (True: {true_label})"
-            # If wrong, maybe use Red? Or keep class color?
-            # User said: "make it of the color associated to the predicted class"
-            pass
+        status = "Correct" if true_label == class_name else "Incorrect"
+        title += f" ({status})"
             
     # Set title with the predicted class color
     t = ax_cam.set_title(title, fontsize=14, fontweight='bold')
@@ -559,6 +565,7 @@ def plot_inference_result(
         bars = ax_probs.bar(class_names, probs, color=theme_colors, alpha=0.8)
         ax_probs.set_ylim(0, 1.1)
         ax_probs.set_title("Prediction Confidence by Class")
+        ax_probs.set_ylabel("Probability")
         ax_probs.grid(axis='y', alpha=0.3)
         ax_probs.spines['top'].set_visible(False)
         ax_probs.spines['right'].set_visible(False)
@@ -575,4 +582,93 @@ def plot_inference_result(
     # Unique filename based on class and confidence (avoid overwriting)
     _save_plot(fig, f"Inference_{class_name}_{confidence:.2f}_{np.random.randint(0,1000)}", save_folder)
     return fig
+
+
+def plot_binary_classification_metrics(results_df: pd.DataFrame, 
+                                     save_folder: str = "reports/figures", 
+                                     title_prefix: str = ""):
+    """
+    Computes and plots binary classification metrics (Healthy vs. Diseased).
+    Diseased = Class 1-4 (Mild+), Healthy = Class 0 (No DR).
+    """
+
+    print("--- Binary Classification Analysis (Healthy vs. Diseased) ---")
+
+    # Binarize labels: 0 -> 0 (Healthy), 1-4 -> 1 (Diseased)
+    y_true_bin = (results_df['true'] > 0).astype(int)
+    y_pred_bin = (results_df['pred'] > 0).astype(int)
+    
+    # Calculate probability of disease (Sum of probs for classes 1-4)
+    # Check if probability columns exist
+    prob_cols = [c for c in results_df.columns if c.startswith('prob_')]
+    y_prob_bin = None
+    if len(prob_cols) == 5:
+        # P(Diseaset) = 1 - P(No DR) or Sum(P(Mild)...P(Prolif))
+        # Using 1 - P(0) is safer if probs sum to 1
+        if 'prob_0' in results_df.columns:
+             y_prob_bin = 1.0 - results_df['prob_0']
+        else:
+             y_prob_bin = results_df[[c for c in prob_cols if c != 'prob_0']].sum(axis=1)
+
+    # Metrics
+    acc = accuracy_score(y_true_bin, y_pred_bin)
+    prec = precision_score(y_true_bin, y_pred_bin, zero_division=0)
+    rec = recall_score(y_true_bin, y_pred_bin, zero_division=0) # Sensitivity
+    spec = recall_score(y_true_bin, y_pred_bin, pos_label=0, zero_division=0) # Specificity
+    f1 = f1_score(y_true_bin, y_pred_bin, zero_division=0)
+    
+    print(f"Binary Accuracy: {acc:.4f}")
+    print(f"Sensitivity (Recall): {rec:.4f} (Ability to detect disease)")
+    print(f"Specificity: {spec:.4f} (Ability to confirm health)")
+    print(f"Precision: {prec:.4f}")
+    print(f"F1-Score: {f1:.4f}")
+
+    if y_prob_bin is not None:
+        try:
+            auc_score = roc_auc_score(y_true_bin, y_prob_bin)
+            print(f"Binary ROC-AUC: {auc_score:.4f}")
+        except ValueError:
+            print("Binary ROC-AUC: Undefined (only one class present in y_true)")
+
+    # Confusion Matrix for Binary Task & ROC Curve
+    cm_bin = confusion_matrix(y_true_bin, y_pred_bin)
+    
+    # Define custom purple colormap to match project theme
+    cmap_purple = LinearSegmentedColormap.from_list("custom_purple", ["#fafafa", "#4B0082"])
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # 1. Confusion Matrix
+    sns.heatmap(cm_bin, annot=True, fmt='d', cmap=cmap_purple,
+                xticklabels=['Healthy', 'Diseased'],
+                yticklabels=['Healthy', 'Diseased'], ax=axes[0])
+    axes[0].set_xlabel('Predicted')
+    axes[0].set_ylabel('True')
+    axes[0].set_title(f'{title_prefix}Referral Confusion Matrix')
+
+    # 2. ROC Curve
+    if y_prob_bin is not None:
+        try:
+            fpr, tpr, _ = roc_curve(y_true_bin, y_prob_bin)
+            roc_auc = auc(fpr, tpr)
+            
+            axes[1].plot(fpr, tpr, color='#FF8C00', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+            axes[1].plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            axes[1].set_xlim([0.0, 1.0])
+            axes[1].set_ylim([0.0, 1.05])
+            axes[1].set_xlabel('False Positive Rate')
+            axes[1].set_ylabel('True Positive Rate')
+            axes[1].set_title('Receiver Operating Characteristic (Binary)')
+            axes[1].legend(loc="lower right")
+            axes[1].grid(alpha=0.3)
+        except ValueError:
+             axes[1].text(0.5, 0.5, "ROC Undefined (Single Class)", ha='center')
+    else:
+        axes[1].text(0.5, 0.5, "Probabilities not available", ha='center')
+        axes[1].axis('off')
+    
+    plt.tight_layout()
+    _save_plot(fig, f"{title_prefix}binary_performance_panel", save_folder)
+    return fig
+
 
