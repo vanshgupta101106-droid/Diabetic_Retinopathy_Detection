@@ -33,7 +33,7 @@ dependencies = [
 dev = ["pytest", "ruff", "httpx"]
 
 [project.urls]
-Repository = "https://github.com/giuliomatteucci/Diabetic_Retinopathy_Detection"
+Repository = "https://github.com/gmatteuc/Diabetic_retinopathy_detection"
 
 [tool.setuptools.packages.find]
 include = ["src*"]

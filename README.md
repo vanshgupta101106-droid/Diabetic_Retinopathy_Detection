@@ -1,5 +1,6 @@
-# Diabetic Retinopathy Detection & Explainability
+# Diabetic Retinopathy Detection with Explainability
 
+![CI](https://github.com/gmatteuc/Diabetic_retinopathy_detection/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)
 
@@ -46,7 +47,7 @@ Automated Quality Control (QC) scripts analyze image entropy and vessel density 
 ### 3. Deployment (FastAPI + Docker)
 The inference engine is wrapped in a high-performance FastAPI server.
 - **Endpoints**: `/predict` accepts binary image uploads and returns JSON predictions + Base64 encoded Grad-CAM overlays.
-- **Containerization**: A multi-stage `Dockerfile` ensures a lean production image, separating build dependencies from the runtime environment.
+- **Containerization**: A `Dockerfile` ensures a lean production image based on `python:3.10-slim` with CPU-only PyTorch.
 
 ## Modeling Results
 The **EfficientNet-B3** model achieved superior performance, balancing accuracy and computational efficiency.
@@ -72,7 +73,7 @@ In a screening context, the primary goal is often to distinguish healthy patient
 </div>
 
 ### 2. Diagnostic Performance
-The confusion matrix demonstrates strong diagonal performance. The model effectively separates **No DR** (Class 0) from **Proliferative DR** (Class 4). Although some confusion exists between adjacent mild/moderate classes (a common clinical challenge), the high AUC for disease detection confirming robust screening capability.
+The confusion matrix demonstrates strong diagonal performance. The model effectively separates **No DR** (Class 0) from **Proliferative DR** (Class 4). Although some confusion exists between adjacent mild/moderate classes (a common clinical challenge), the high AUC for disease detection confirms robust screening capability.
 
 <div align="center">
   <img src="misc/efficientnet_b3_model_diagnostics.png" width="90%">
@@ -81,14 +82,14 @@ The confusion matrix demonstrates strong diagonal performance. The model effecti
 
 ### 3. Explainability (Inference)
 The Grad-CAM overlay below highlights the regions of interest (ROI) used by the model. 
-*In this Proliferative DR case, the heatmap correctly identifying the neovascularization and hemorrhages near the optic disc.*
+*In this Proliferative DR case, the heatmap correctly identifies the neovascularization and hemorrhages near the optic disc.*
 
 <div align="center">
   <img src="misc/inference_severe_0.54_598.png" width="80%">
   <p><em>Inference in the Wild: EfficientNet-B3 correctly identifying Severe/Proliferative features despite lighting variations.</em></p>
 </div>
 
-## 💻 Project Structure
+## Project Structure
 ```
 ├── configs/            # YAML configuration for models & training
 ├── data/               # Raw and Processed data storage
@@ -107,12 +108,12 @@ The Grad-CAM overlay below highlights the regions of interest (ROI) used by the 
 └── README.md           # Documentation
 ```
 
-## ⚙️ Installation & Usage
+## Installation & Usage
 
 ### 1. Environment Setup
 ```bash
 conda env create -f environment.yaml
-conda activate dr-detection
+conda activate diabetic_retinopathy
 ```
 
 ### 2. Data Preparation
@@ -133,3 +134,23 @@ Launch the FastAPI server locally:
 uvicorn src.app.main:app --reload
 ```
 The API docs will be available at `http://localhost:8000/docs`.
+
+### 5. Docker Deployment
+The application is containerized for production.
+
+**Build the Image:**
+```bash
+docker build -t diabetic-retinopathy-api .
+```
+
+**Run Container (Requires Weights):**
+Mount your local `models/` directory to use trained weights:
+```bash
+# Windows (PowerShell)
+docker run -d -p 8000:8000 -v ${PWD}/models:/app/models --name dr-api diabetic-retinopathy-api
+
+# Linux/Mac
+docker run -d -p 8000:8000 -v $(pwd)/models:/app/models --name dr-api diabetic-retinopathy-api
+```
+Access the API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
+To stop the container: `docker stop dr-api`.

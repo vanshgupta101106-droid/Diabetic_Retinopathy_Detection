@@ -71,7 +71,7 @@ def load_and_show_preprocessing(
         labels.append(row["level"])
         titles.append(f"Class {row['level']}\nID: {row['patient_id']} ({row['eye']})")
 
-    print("Displaying Raw Images...")
+    logger.info("Displaying Raw Images...")
     plot_image_grid(
         raw_imgs, labels, titles=titles,
         grid_shape=(2, 3), figsize=(12, 10),
@@ -79,7 +79,7 @@ def load_and_show_preprocessing(
     )
     plt.show()
 
-    print("Displaying Processed Images (Graham's Method)...")
+    logger.info("Displaying Processed Images (Graham's Method)...")
     plot_image_grid(
         proc_imgs, labels, titles=titles,
         grid_shape=(2, 3), figsize=(12, 10),
@@ -152,8 +152,7 @@ def show_vessel_density_report(
         qc_titles.append(f"ID: {row['patient_id']}\nDensity: {density:.3f}")
 
     qc_df = pd.DataFrame(qc_results)
-    print("\n--- Vessel Density Report ---")
-    print(qc_df.round(4).to_string(index=False))
+    logger.info("Vessel Density Report:\n%s", qc_df.round(4).to_string(index=False))
 
     if qc_images:
         n = len(qc_images)
@@ -167,7 +166,7 @@ def show_vessel_density_report(
         )
         plt.show()
 
-    print("Higher density indicates coherent vessel structure (good focus/contrast).")
+    logger.info("Higher density indicates coherent vessel structure (good focus/contrast).")
     return qc_df
 
 
@@ -190,7 +189,7 @@ def show_augmentation_verification(
         patient_id: Optional patient ID for the log message.
     """
     if patient_id:
-        print(f"Visualizing augmentations for Patient: {patient_id}")
+        logger.info(f"Visualizing augmentations for Patient: {patient_id}")
 
     images, titles, labels = [], [], []
 
@@ -213,7 +212,7 @@ def show_augmentation_verification(
         titles.append(f"Aug #{i + 1}")
         labels.append(label.item() if hasattr(label, "item") else int(label))
 
-    print("--- Plotting Verification Grid ---")
+    logger.info("Plotting Verification Grid...")
     plot_image_grid(
         images, labels=labels, titles=titles,
         grid_shape=grid_shape, figsize=(12, 16),
@@ -255,7 +254,7 @@ def load_and_show_quality_examples(
         suptitle = "High Quality Examples (Clear Vessels & Good Contrast)"
 
     sample = subset.sample(min(n_images, len(subset)))
-    print(f"Displaying {quality_type} quality examples...")
+    logger.info(f"Displaying {quality_type} quality examples...")
 
     images, labels, titles = [], [], []
     for _, row in sample.iterrows():
@@ -304,16 +303,17 @@ def print_classification_summary(
     f1_macro = f1_score(y_true, y_pred, average="macro")
     f1_weighted = f1_score(y_true, y_pred, average="weighted")
 
-    print("\n" + "=" * 50)
-    print("--- Multi-Class Classification Analysis (5 Grades) ---")
-    print("=" * 50)
-    print(f"Overall Accuracy: {acc:.4f}")
-    print(f"Balanced Accuracy: {balanced_acc:.4f}")
-    print(f"Quadratic Weighted Kappa (QWK): {kappa:.4f} (Key Clinical Metric)")
-    print(f"F1-Score (Macro): {f1_macro:.4f}")
-    print(f"F1-Score (Weighted): {f1_weighted:.4f}")
-    print(f"\nPer-Class Metrics:")
-    print(classification_report(y_true, y_pred, target_names=class_names))
+    logger.info(
+        "\n" + "=" * 50
+        + "\n--- Multi-Class Classification Analysis (5 Grades) ---"
+        + "\n" + "=" * 50
+        + f"\nOverall Accuracy: {acc:.4f}"
+        + f"\nBalanced Accuracy: {balanced_acc:.4f}"
+        + f"\nQuadratic Weighted Kappa (QWK): {kappa:.4f} (Key Clinical Metric)"
+        + f"\nF1-Score (Macro): {f1_macro:.4f}"
+        + f"\nF1-Score (Weighted): {f1_weighted:.4f}"
+    )
+    logger.info("\nPer-Class Metrics:\n%s", classification_report(y_true, y_pred, target_names=class_names))
 
 
 def load_and_show_error_samples(
@@ -335,12 +335,12 @@ def load_and_show_error_samples(
         save_folder: Sub-folder under ``reports/figures/``.
     """
     if "image_name" not in results_df.columns:
-        print("Column 'image_name' not found in predictions.")
+        logger.warning("Column 'image_name' not found in predictions.")
         return
 
     errors = results_df[results_df["true"] != results_df["pred"]]
     if errors.empty:
-        print("Model has 100% accuracy! No errors to visualize.")
+        logger.info("Model has 100%% accuracy! No errors to visualize.")
         return
 
     sample_errors = errors.sample(n=min(n_samples, len(errors)), random_state=random_state)
@@ -359,7 +359,7 @@ def load_and_show_error_samples(
             pass
 
     if images:
-        print("Visualizing Error Cases:")
+        logger.info("Visualizing Error Cases...")
         plot_image_grid(
             images, labels, preds=preds, titles=titles,
             title=f"{model_name} Failure Analysis",
@@ -389,7 +389,6 @@ def test_api_and_visualize(
 
     class_map = {0: "No DR", 1: "Mild", 2: "Moderate", 3: "Severe", 4: "Proliferative"}
 
-    # 1. Select sample image
     sample_image_path = None
     true_label_desc = "Unknown"
 
@@ -400,14 +399,13 @@ def test_api_and_visualize(
             selected = severe_df.sample(1).iloc[0]
             sample_image_path = selected["path"]
             true_label_desc = f"{selected['level']} ({class_map.get(selected['level'], '?')})"
-            print(f"Selected sample: {sample_image_path} (Level: {true_label_desc})")
+            logger.info(f"Selected sample: {sample_image_path} (Level: {true_label_desc})")
 
     if not sample_image_path or not Path(sample_image_path).exists():
-        print("No suitable sample image found.")
+        logger.warning("No suitable sample image found.")
         return
 
-    # 2. Send request
-    print("Sending POST request to /predict...")
+    logger.info("Sending POST request to /predict...")
     try:
         with open(sample_image_path, "rb") as f:
             response = client.post(
@@ -415,24 +413,25 @@ def test_api_and_visualize(
                 files={"file": ("sample.jpeg", f, "image/jpeg")},
             )
     except Exception as e:
-        print(f"Error during request: {e}")
+        logger.error(f"Error during request: {e}")
         return
 
     if response.status_code != 200:
-        print(f"API Request Failed: {response.status_code}")
-        print(response.json())
+        logger.error(f"API Request Failed: {response.status_code}")
+        logger.error(response.json())
         return
 
     result = response.json()
-    print("-" * 50)
-    print("API RESPONSE SUCCESS")
-    print(f"Filename:  {result.get('filename')}")
-    print(f"Diagnosis: {result['diagnosis']}")
-    print(f"Confidence: {result['confidence']:.4f}")
-    print(f"Referral Advised: {result['referral_advised']}")
-    print("-" * 50)
+    logger.info(
+        "-" * 50
+        + "\nAPI RESPONSE SUCCESS"
+        + f"\nFilename:  {result.get('filename')}"
+        + f"\nDiagnosis: {result['diagnosis']}"
+        + f"\nConfidence: {result['confidence']:.4f}"
+        + f"\nReferral Advised: {result['referral_advised']}"
+        + "\n" + "-" * 50
+    )
 
-    # 3. Display Grad-CAM comparison
     if result.get("gradcam_base64"):
         img_data = base64.b64decode(result["gradcam_base64"])
         gradcam_img = PILImage.open(io.BytesIO(img_data))

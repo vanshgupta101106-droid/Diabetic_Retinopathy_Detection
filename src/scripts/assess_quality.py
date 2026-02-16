@@ -13,11 +13,10 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from src.config import DATA_DIR, PROCESSED_DATA_DIR
+from src.config import PROCESSED_DATA_DIR
 from src.data.preprocessing import ImagePreprocessor
 from src.utils.logger import get_logger
 

@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         raise e
-    
+
     yield
 
     models.clear()
@@ -77,13 +77,13 @@ async def predict(file: UploadFile = File(...)):
         predictor = models.get("predictor")
         if not predictor:
             raise HTTPException(status_code=503, detail="Model service unavailable.")
-            
+
         result = predictor.predict(contents)
         result["filename"] = file.filename
         result["processing_time_ms"] = round((time.time() - start_time) * 1000, 2)
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
