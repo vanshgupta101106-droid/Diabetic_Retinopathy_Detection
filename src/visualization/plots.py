@@ -32,8 +32,10 @@ from sklearn.metrics import (
     precision_score, 
     recall_score, 
     f1_score, 
-    roc_auc_score
+    roc_auc_score,
+    cohen_kappa_score
 )
+from sklearn.calibration import calibration_curve
 from matplotlib.colors import LinearSegmentedColormap
 from scipy import stats
 
@@ -669,6 +671,273 @@ def plot_binary_classification_metrics(results_df: pd.DataFrame,
     
     plt.tight_layout()
     _save_plot(fig, f"{title_prefix}binary_performance_panel", save_folder)
+    return fig
+
+
+def plot_calibration_curves(y_true, prob_matrix, n_classes=5, save_folder="reports/figures", title_prefix="", n_bins=10):
+    """
+    Plots calibration curves (reliability diagrams) for each class.
+    Checks if predicted probabilities match observed frequencies.
+    """
+    from sklearn.calibration import calibration_curve # Local import
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    colors = ['#4B0082', '#762B98', '#A157AE', '#CC82C4', '#FF8C00']
+    
+    # 1. Plot Per-Class Calibration
+    n_classes = prob_matrix.shape[1]
+    for i in range(n_classes):
+        # Create binary target for this class (One-vs-Rest)
+        y_true_binary = (y_true == i).astype(int)
+        prob_class = prob_matrix[:, i]
+        
+        fraction_of_positives, mean_predicted_value = calibration_curve(y_true_binary, prob_class, n_bins=n_bins)
+        
+        ax.plot(mean_predicted_value, fraction_of_positives, "s-", alpha=1.0, linewidth=2, 
+                label=f'Class {i}', color=colors[i % len(colors)])
+
+    # 2. Plot Aggregate (Lumped) Calibration
+    # Flatten all probabilities and outcomes to treat as one large binary problem
+    y_true_onehot = np.zeros_like(prob_matrix)
+    y_true_onehot[np.arange(len(y_true)), y_true] = 1
+    
+    all_outcomes = y_true_onehot.flatten()
+    all_probs = prob_matrix.flatten()
+    
+    # Custom binning to get counts for error bars
+    # We use calibration_curve to get the points, but we need counts for SE
+    # from sklearn.calibration import calibration_curve # Removed redundant import
+    prob_true_curve, prob_pred_curve = calibration_curve(all_outcomes, all_probs, n_bins=n_bins, strategy='uniform')
+
+    # To calculate Standard Error, we need sample counts per bin
+    # Re-bin manually to match sklearn's strategy='uniform'
+    # Sklearn calibration_curve bins [0, 1] into n_bins
+    bins = np.linspace(0.0, 1.0, n_bins + 1)
+    binids = np.digitize(all_probs, bins) - 1
+    # Fix edge case where prob == 1.0 goes to bin n_bins (index n_bins) -> clip to n_bins-1
+    binids = np.clip(binids, 0, n_bins - 1)
+    
+    bin_total = np.bincount(binids, minlength=n_bins)
+    
+    # We only care about bins that have data (mask > 0)
+    mask = bin_total > 0
+    
+    # Align our manual binning with sklearn's output
+    # prob_true_curve contains values only for populated bins
+    if np.sum(mask) == len(prob_true_curve):
+         n = bin_total[mask]
+         # Standard Error = sqrt(p(1-p)/n)
+         se = np.sqrt(prob_true_curve * (1 - prob_true_curve) / n)
+         
+         # Plot line (solid black)
+         ax.plot(prob_pred_curve, prob_true_curve, "o-", color='black', linewidth=3, 
+                 label='All Classes', zorder=10)
+                 
+         # Plot shaded error region
+         ax.fill_between(prob_pred_curve, prob_true_curve - se, prob_true_curve + se, 
+                         color='black', alpha=0.15, zorder=9) # No label to exclude from legend
+    else:
+         # Fallback if alignment fails (should be rare/impossible with consistent binning)
+         ax.plot(prob_pred_curve, prob_true_curve, "o-", color='black', linewidth=2.5, label='All Classes')
+
+    # Ideal Line
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", alpha=0.8, label="Perfectly Calibrated")
+
+    ax.set_ylabel("Fraction of Positives")
+    ax.set_xlabel("Mean Predicted Probability")
+    ax.set_title(f"{title_prefix}Calibration Curves (Reliability Diagram)")
+    ax.legend(loc="lower right")
+    ax.grid(alpha=0.3)
+    
+    _save_plot(fig, f"{title_prefix}calibration_curves", save_folder)
+    return fig
+
+
+def plot_error_distribution(y_true, y_pred, confidences=None, save_folder="reports/figures", title_prefix=""):
+    """
+    Analyzes the magnitude of errors (e.g., Off-by-1 vs Off-by-3).
+    If confidences (array of shape (N,)) are provided, adds a second subplot
+    showing the average confidence for each error magnitude.
+    """
+    errors = y_pred - y_true
+    unique, counts = np.unique(errors, return_counts=True)
+    
+    # Create DataFrame for analysis
+    data = {'Error Magnitude': errors, 'Validation': np.ones_like(errors)}
+    if confidences is not None:
+        data['Confidence'] = confidences
+        
+    df_analysis = pd.DataFrame(data)
+    df_analysis['Type'] = df_analysis['Error Magnitude'].apply(
+        lambda x: "Correct" if x == 0 else ("Off-by-1" if abs(x) == 1 else "Off-by-many")
+    )
+    
+    # Color mapping
+    palette = {"Correct": "#4B0082", "Off-by-1": "#CC82C4", "Off-by-many": "#FF8C00"}
+    
+    # Setup Figure
+    if confidences is not None:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    else:
+        fig, ax1 = plt.subplots(figsize=(10, 6))
+        ax2 = None
+
+    # --- Plot 1: Count Distribution ---
+    # Aggregate counts for plotting
+    err_counts = df_analysis['Error Magnitude'].value_counts().reset_index()
+    err_counts.columns = ['Error Magnitude', 'Count']
+    # Add Type column back
+    err_counts['Type'] = err_counts['Error Magnitude'].apply(
+        lambda x: "Correct" if x == 0 else ("Off-by-1" if abs(x) == 1 else "Off-by-many")
+    )
+    
+    sns.barplot(data=err_counts, x="Error Magnitude", y="Count", hue="Type", palette=palette, dodge=False, ax=ax1)
+    
+    # Calculate stats
+    total = len(y_true)
+    perfect = np.sum(errors == 0)
+    off_by_one = np.sum(np.abs(errors) == 1)
+    severe = np.sum(np.abs(errors) > 1)
+    
+    stats_text = (f"Total: {total}\n"
+                  f"Exact Accuracy: {perfect/total:.1%}\n"
+                  f"Off-by-1: {off_by_one/total:.1%}\n"
+                  f"Off-by-many: {severe/total:.1%}")
+    
+    ax1.text(0.02, 0.98, stats_text, transform=ax1.transAxes, va='top', 
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.9))
+    
+    ax1.set_title(f"{title_prefix}Error Magnitude Distribution")
+    ax1.grid(axis='y', alpha=0.3)
+    
+    # --- Plot 2: Confidence vs Error Magnitude ---
+    if ax2 is not None:
+        sns.barplot(
+            data=df_analysis, 
+            x="Error Magnitude", 
+            y="Confidence", 
+            hue="Type", 
+            palette=palette, 
+            errorbar='se',  # Shows Standard Error
+            capsize=.1,
+            dodge=False, 
+            ax=ax2
+        )
+        ax2.set_title(f"{title_prefix}Confidence vs. Error Magnitude")
+        ax2.set_ylabel("Mean Confidence Score")
+        ax2.grid(axis='y', alpha=0.3)
+        # remove legend from second plot if redundant, or keep it
+        ax2.legend_.remove() if ax2.legend_ else None
+
+    plt.tight_layout()
+    _save_plot(fig, f"{title_prefix}error_distribution", save_folder)
+    return fig
+
+
+def plot_performance_vs_quality(results_df, manifest_df, quality_col='quality_score', 
+                              save_folder="reports/figures", title_prefix="", n_bins=10, min_samples=50):
+    """
+    Plots model accuracy vs image quality with error bars (Standard Error).
+    Uses equally spaced bins for the quality metric.
+    """
+    # Merge on image name
+    if 'image_name' not in results_df.columns:
+        logging.error("results_df missing 'image_name' column")
+        return None
+        
+    left_key = 'image_name'
+    right_key = 'image' if 'image' in manifest_df.columns else 'image_name'
+    
+    if right_key not in manifest_df.columns:
+         logging.error(f"manifest_df missing key column {right_key}")
+         return None
+
+    merged = pd.merge(results_df, manifest_df, left_on=left_key, right_on=right_key, how='inner')
+    
+    if merged.empty:
+        logging.warning("Merge result is empty. Check filenames matching.")
+        return None
+        
+    # Check if quality column exists
+    if quality_col not in merged.columns:
+        logging.warning(f"Quality column '{quality_col}' not found in merged data.")
+        return None
+
+    # Calculate correctness
+    merged['is_correct'] = (merged['true'] == merged['pred']).astype(int)
+
+    # Bin the quality metric (Equal Width Bins)
+    # We use pd.cut for equal intervals in quality space
+    merged['quality_bin'] = pd.cut(merged[quality_col], bins=n_bins)
+    
+    # Aggregate statistics
+    bin_stats = merged.groupby('quality_bin', observed=False).agg({
+        quality_col: 'mean',           # Center of the bin (approx)
+        'is_correct': ['mean', 'count', 'sem'] # Accuracy, N samples, Standard Error
+    }).reset_index()
+    
+    # Flatten columns
+    bin_stats.columns = ['bin', 'mean_qual', 'accuracy', 'count', 'se']
+    
+    # Remove bins with insufficient samples to avoid noise
+    print(f"Total bins: {len(bin_stats)}. Valid bins (>= {min_samples} samples): {len(bin_stats[bin_stats['count'] >= min_samples])}")
+    bin_stats = bin_stats[bin_stats['count'] >= min_samples]
+
+    if bin_stats.empty:
+        logging.warning(f"No bins have >= {min_samples} samples. Cannot plot performance vs quality.")
+        return None
+
+    # Create axes
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+    ax2 = ax1.twinx()
+
+    # 1. Bar Plot for Sample Count (Secondary Y-Axis) - PLOT FIRST (Background)
+    # Calculate width for bars (uniform since we used pd.cut)
+    bin_width = (merged[quality_col].max() - merged[quality_col].min()) / n_bins
+    
+    ax2.bar(
+        bin_stats['mean_qual'], 
+        bin_stats['count'], 
+        width=bin_width * 0.8, 
+        alpha=1.0,  # Opaque 
+        color='#FF8C00', # Darker Orange
+        label='Sample Count'
+    )
+    
+    # 2. Error Bar Plot for Accuracy (Primary Y-Axis) - PLOT SECOND (Foreground)
+    ax1.errorbar(
+        bin_stats['mean_qual'], 
+        bin_stats['accuracy'], 
+        yerr=bin_stats['se'], 
+        fmt='-o', 
+        color='#4B0082', 
+        ecolor='#4B0082', 
+        elinewidth=2, 
+        capsize=4, 
+        linewidth=2, 
+        label='Accuracy ± SE'
+    )
+    
+    # Ensure ax1 (accuracy) is drawn ON TOP of ax2 (bars)
+    ax1.set_zorder(ax2.get_zorder() + 1)
+    ax1.patch.set_visible(False)  # Make ax1 background transparent so ax2 shows through
+    
+    # Labels & Title
+    ax1.set_xlabel(f"Image Quality ({quality_col})")
+    ax1.set_ylabel("Model Accuracy")
+    ax2.set_ylabel("Number of Samples")
+    ax1.set_title(f"{title_prefix}Performance vs. Image Quality (Equal Bins)")
+    ax1.grid(True, alpha=0.3)
+    
+    # Axis Limits customization
+    ax1.set_ylim(0.0, 1.05)
+    
+    # Combine legends
+    lines, labels = ax1.get_legend_handles_labels()
+    bars, bar_labels = ax2.get_legend_handles_labels()
+    ax1.legend(lines + bars, labels + bar_labels, loc='lower right')
+    
+    _save_plot(fig, f"{title_prefix}perf_vs_{quality_col}", save_folder)
     return fig
 
 
