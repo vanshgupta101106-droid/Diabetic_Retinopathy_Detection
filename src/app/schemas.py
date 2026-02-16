@@ -1,5 +1,14 @@
-from pydantic import BaseModel
+"""
+API Response Schemas
+====================
+
+Pydantic models that define the JSON response structure for the
+``/`` (health-check) and ``/predict`` endpoints.
+"""
+
 from typing import Dict, Optional
+
+from pydantic import BaseModel
 
 class HealthResponse(BaseModel):
     status: str

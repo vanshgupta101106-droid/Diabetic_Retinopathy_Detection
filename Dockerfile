@@ -1,7 +1,7 @@
 # Dockerfile for Diabetic Retinopathy Detection API
 
-# 1. Base Image with Python 3.9 (Slim for smaller size)
-FROM python:3.9-slim
+# 1. Base Image with Python 3.10 (Slim for smaller size)
+FROM python:3.10-slim
 
 # 2. Set Environment Variables
 ENV PYTHONDONTWRITEBYTECODE=1 \

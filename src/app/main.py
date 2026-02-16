@@ -1,18 +1,25 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
-import logging
+"""
+FastAPI Application
+===================
+
+Defines the REST API for diabetic retinopathy detection.  The ``/predict``
+endpoint accepts a fundus image upload, runs inference through
+DRPredictor, and returns a JSON response
+with diagnosis, confidence, and an optional Grad-CAM overlay.
+"""
+
 import time
+from contextlib import asynccontextmanager
 from typing import Dict
 
-from src.app.schemas import PredictionResponse, HealthResponse
+from fastapi import FastAPI, File, HTTPException, UploadFile
+
 from src.app.predictor import DRPredictor
+from src.app.schemas import HealthResponse, PredictionResponse
+from src.utils.logger import get_logger
 
-# Configure Logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-# Global State for ML Model
 models: Dict[str, DRPredictor] = {}
 
 @asynccontextmanager
@@ -22,8 +29,7 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Loading DR Detection Model...")
     try:
-        # Initialize the predictor (loads weights from disk)
-        predictor = DRPredictor(model_name="efficientnet_b3") 
+        predictor = DRPredictor(model_name="efficientnet_b3")
         models["predictor"] = predictor
         logger.info("Model loaded successfully.")
     except Exception as e:
@@ -31,8 +37,7 @@ async def lifespan(app: FastAPI):
         raise e
     
     yield
-    
-    # Clean up resources
+
     models.clear()
     logger.info("Model unloaded.")
 
@@ -51,8 +56,7 @@ async def health_check():
     """
     if "predictor" not in models:
         raise HTTPException(status_code=503, detail="Model not initialized")
-    
-    # We can add more checks here (GPU memory, etc.)
+
     return {
         "status": "healthy",
         "model_loaded": True,
@@ -69,18 +73,12 @@ async def predict(file: UploadFile = File(...)):
 
     start_time = time.time()
     try:
-        # Read file content
         contents = await file.read()
-        
-        # Get predictor instance
         predictor = models.get("predictor")
         if not predictor:
             raise HTTPException(status_code=503, detail="Model service unavailable.")
             
-        # Run inference
         result = predictor.predict(contents)
-        
-        # Add metadata
         result["filename"] = file.filename
         result["processing_time_ms"] = round((time.time() - start_time) * 1000, 2)
         

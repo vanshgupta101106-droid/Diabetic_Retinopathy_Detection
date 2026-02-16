@@ -40,8 +40,6 @@ ENV/
 data/
 models/
 reports/figures/
-!reports/figures/eda/  # Keep EDA figures if desired, but blocking for now to be safe. 
-# actually, usually we want to keep reports/figures but ignore data and models.
 
 # OS generated files
 .DS_Store

@@ -4,7 +4,7 @@ version: "0.1.0"
 data:
   raw_path: "data"
   processed_path: "data/processed"
-  image_size: [256, 256]
+  image_size: [512, 512]
   batch_size: 32
   num_workers: 0
   # Preprocessing
@@ -12,7 +12,7 @@ data:
   normalization: "imagenet" # or 'standard'
 
 model:
-  name: "resnet50"
+  name: "efficientnet_b3"
   num_classes: 5
   dropout_rate: 0.5
   pretrained: true
@@ -24,6 +24,9 @@ train:
   early_stopping_patience: 5
   val_split: 0.15
   test_split: 0.15
+
+quality:
+  threshold: 0.0583  # 5th-percentile vessel density; images below are excluded
 
 logging:
   save_dir: "reports"

@@ -1,47 +1,41 @@
 """
-Diabetic Retinopathy Detection - Visualization Module
-=====================================================
+Visualization
+=============
 
-This module provides a unified styling and plotting interface for the project.
-It adheres to a strict "Deep Purple & Orange" color theme for consistent,
-publication-ready figures.
-
-Functions:
-    set_plot_style: Configures global matplotlib/seaborn defaults.
-    plot_image_grid: Visualizes a grid of retinal fundus images.
-    plot_class_distribution: Plots the distribution of DR severities.
-    plot_learning_curves: Plots training history.
-    plot_model_diagnostics: Comprehensive evaluation panel.
+Unified plotting interface with a Deep-Purple-to-Orange colour theme
+for consistent, publication-ready figures.
 """
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import warnings
-import matplotlib.pyplot as plt
+
+import cv2
 import matplotlib as mpl
-import seaborn as sns
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import cv2  # Added cv2 import
+import seaborn as sns
 from cycler import cycler
-from sklearn.metrics import (
-    confusion_matrix, 
-    roc_curve, 
-    auc, 
-    accuracy_score, 
-    precision_score, 
-    recall_score, 
-    f1_score, 
-    roc_auc_score,
-    cohen_kappa_score
-)
-from sklearn.calibration import calibration_curve
 from matplotlib.colors import LinearSegmentedColormap
-from scipy import stats
+from sklearn.calibration import calibration_curve
+from sklearn.metrics import (
+    accuracy_score,
+    auc,
+    cohen_kappa_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 
 from src.config import REPORTS_DIR
+from src.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+# Project theme palette — ordered from Healthy (purple) to Severe (orange).
+THEME_COLORS = ["#4B0082", "#762B98", "#A157AE", "#CC82C4", "#FF8C00"]
 
 def _save_plot(fig, title: str, save_folder: str = None):
     """
@@ -65,40 +59,22 @@ def _save_plot(fig, title: str, save_folder: str = None):
         logger.error(f"Failed to save plot: {e}")
 
 def set_plot_style():
-    """
-    Sets the project-wide matplotlib and seaborn style.
+    """Set the project-wide matplotlib and seaborn style.
 
-    Theme:
-        Primary: Deep Purple (#4B0082)
-        Contrast: Dark Orange (#FF8C00)
+    Palette runs from Deep Purple (No DR) to Dark Orange (Proliferative).
     """
     plt.style.use("ggplot")
 
-    # Custom Palette defined in design specs
-    # Ordered from Deep Purple (Healthiest) to Dark Orange (Severe)
-    selected_colors = [
-        "#4B0082",  # 0: Deep Purple
-        "#762B98",  # 1: Purple
-        "#A157AE",  # 2: Medium Orchid
-        "#CC82C4",  # 3: Pinkish
-        "#FF8C00",  # 4: Dark Orange
-    ]
+    selected_colors = ["#4B0082", "#762B98", "#A157AE", "#CC82C4", "#FF8C00"]
 
-    # Configure Cycle
-    color_cycle = cycler("color", selected_colors)
-    mpl.rcParams["axes.prop_cycle"] = color_cycle
-
-    # Configure Seaborn
+    mpl.rcParams["axes.prop_cycle"] = cycler("color", selected_colors)
     sns.set_palette(sns.color_palette(selected_colors))
 
-    # Typography & Lines
     mpl.rcParams["font.family"] = "sans-serif"
     mpl.rcParams["axes.titlesize"] = 14
     mpl.rcParams["axes.labelsize"] = 12
     mpl.rcParams["lines.linewidth"] = 2.0
     mpl.rcParams["grid.alpha"] = 0.5
-    
-    # Remove top and right spines
     mpl.rcParams["axes.spines.top"] = False
     mpl.rcParams["axes.spines.right"] = False
 
@@ -250,9 +226,15 @@ def plot_learning_curves(history: Dict[str, List[float]], save_folder: str = "ev
     _save_plot(fig, f"{title_prefix}Learning_Curves", save_folder)
     return fig
 
-def _add_heatmap_annotations(ax, data, fmt="d", threshold=0.3):
-    """
-    Manually adds text to heatmap cells.
+def _add_heatmap_annotations(ax, data, fmt="d", threshold=0.3, fontsize=12):
+    """Manually add text annotations to heatmap cells.
+
+    Args:
+        ax: Matplotlib axes containing the heatmap.
+        data: 2-D array of numeric values to annotate.
+        fmt: Format string (e.g. ``"d"`` for int) or an array of pre-formatted strings.
+        threshold: Ratio above which text color switches to white.
+        fontsize: Font size for annotation text.
     """
     rows, cols = data.shape
     max_val = np.max(data) if np.max(data) > 0 else 1
@@ -260,19 +242,21 @@ def _add_heatmap_annotations(ax, data, fmt="d", threshold=0.3):
     annot_array = None
     if isinstance(fmt, (np.ndarray, list)):
         annot_array = fmt
-        fmt = "" 
+        fmt = ""
 
     for i in range(rows):
         for j in range(cols):
             val = data[i, j]
             text_val = f"{val:{fmt}}" if annot_array is None else str(annot_array[i, j])
-            
-            # Determine text color based on background intensity
+
             ratio = val / max_val
             color = "white" if ratio > threshold else "black"
-            
-            ax.text(j + 0.5, i + 0.5, text_val, 
-                   ha="center", va="center", color=color, fontweight="bold")
+
+            ax.text(
+                j + 0.5, i + 0.5, text_val,
+                ha="center", va="center", color=color,
+                fontweight="bold", fontsize=fontsize,
+            )
 
 def plot_model_diagnostics(
     results_df: pd.DataFrame, 
@@ -292,16 +276,12 @@ def plot_model_diagnostics(
     fig = plt.figure(figsize=(18, 6), constrained_layout=True)
     gs = fig.add_gridspec(1, 3)
     
-    # Color map for Heatmap
     cmap_purple = LinearSegmentedColormap.from_list("custom_purple", ["#fafafa", "#4B0082"])
 
-    # --- 1. Confusion Matrix ---
     ax_cm = fig.add_subplot(gs[0])
     cm = confusion_matrix(results_df["true"], results_df["pred"], labels=list(range(n_classes)))
-    
-    # Normalize for coloring, but Annotate counts
     cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    cm_norm = np.nan_to_num(cm_norm) # Handle division by zero
+    cm_norm = np.nan_to_num(cm_norm)
     
     sns.heatmap(cm_norm, annot=False, cmap=cmap_purple, ax=ax_cm, cbar=False,
                xticklabels=[str(i) for i in range(n_classes)],
@@ -314,15 +294,7 @@ def plot_model_diagnostics(
     ax_cm.set_ylabel("True Label")
     ax_cm.set_xlabel("Predicted Label")
 
-    # --- 2. ROC Curves (One-vs-Rest) ---
     ax_roc = fig.add_subplot(gs[1])
-    
-    # We need probabilities for each class. 
-    # results_df 'prob' might be a list or we need separate columns
-    # Assuming results_df has a col 'probs' which is a list/array
-    
-    # If prob is a string representation of list, parsing might be needed.
-    # Checks if 'prob_0', 'prob_1' etc exist
     prob_cols = [c for c in results_df.columns if c.startswith("prob_")]
     if len(prob_cols) == n_classes:
         y_score = results_df[prob_cols].values
@@ -344,10 +316,7 @@ def plot_model_diagnostics(
     else:
         ax_roc.text(0.5, 0.5, "Probability data missing\nfor ROC", ha='center')
 
-    # --- 3. Class-wise Performance (e.g. Sensitivity/Specificity/F1) ---
     ax_bar = fig.add_subplot(gs[2])
-    
-    # Calculate per-class accuracy (Recall)
     cm_diag = cm.diagonal()
     cm_sum = cm.sum(axis=1)
     recall = np.divide(cm_diag, cm_sum, out=np.zeros_like(cm_diag, dtype=float), where=cm_sum!=0)
@@ -376,7 +345,6 @@ def plot_confidence_abstention_panel(
     """
     set_plot_style()
     
-    # Extract max confidence
     prob_cols = [c for c in results_df.columns if c.startswith("prob_")]
     if not prob_cols:
         return
@@ -386,7 +354,6 @@ def plot_confidence_abstention_panel(
     
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     
-    # 1. Confidence Histogram
     ax_hist = axes[0]
     sns.histplot(confidence, bins=20, ax=ax_hist, kde=True, color="#4B0082")
     ax_hist.axvline(confidence_threshold, color="#FF8C00", linestyle="--", label=f"Threshold {confidence_threshold}")
@@ -394,7 +361,6 @@ def plot_confidence_abstention_panel(
     ax_hist.set_xlabel("Max Probability (Confidence)")
     ax_hist.legend()
     
-    # 2. Accuracy vs Retention Curve
     ax_curve = axes[1]
     thresholds = np.linspace(0.0, 0.95, 20)
     accuracies = []
@@ -449,11 +415,9 @@ def plot_inference_result(
     """
     Visualizes inference result: Original, Processed, and Grad-CAM (Plasma).
     """
-    # Create Figure with GridSpec
     fig = plt.figure(figsize=(20, 10))
     gs = fig.add_gridspec(2, 4, width_ratios=[1, 1, 1, 0.05])
-    
-    # Suptitle with Patient Info
+
     if patient_info:
         info_str = " | ".join([f"{k}: {v}" for k, v in patient_info.items()])
         fig.suptitle(info_str, fontsize=16, y=0.98, fontweight='bold')
@@ -461,9 +425,8 @@ def plot_inference_result(
     ax_orig = fig.add_subplot(gs[0, 0])
     ax_proc = fig.add_subplot(gs[0, 1])
     ax_cam = fig.add_subplot(gs[0, 2])
-    # cbar ax is gs[0, 3] handled by colorbar
-    ax_probs = fig.add_subplot(gs[1, :3]) 
-    
+    ax_probs = fig.add_subplot(gs[1, :3])
+
     # Ensure images are uint8
     if original_img.dtype != np.uint8:
         if original_img.max() <= 1.0:
@@ -477,33 +440,17 @@ def plot_inference_result(
         else:
              processed_img = processed_img.astype(np.uint8)
 
-    # 1. Original
     ax_orig.imshow(original_img)
     ax_orig.set_title("Original Input")
     ax_orig.axis('off')
-    
-    # 2. Processed with Vessel Overlay
-    # Create an RGB version of the vessel mask (green)
+
     display_proc = processed_img.copy()
-    
     if vessel_mask is not None:
-        # Resize mask if needed
         if vessel_mask.shape[:2] != processed_img.shape[:2]:
             vessel_mask = cv2.resize(vessel_mask, (processed_img.shape[1], processed_img.shape[0]))
-            
-        # Create a purple overlay
-        # Normalize mask to 0-1
         mask_norm = vessel_mask.astype(float) / 255.0 if vessel_mask.max() > 1 else vessel_mask.astype(float)
-        
-        # Overlay: Tint Deep Purple where vessels are present
         overlay = display_proc.copy()
-        # Using Deep Purple: (75, 0, 130) but let's make it brighter for overlay: (147, 112, 219) MediumPurple 
-        # or pure magenta/purple (255, 0, 255) for contrast? 
-        # User asked for "same purple color as we did in notebook 1", which refers to the theme #4B0082.
-        # RGB: (75, 0, 130)
-        overlay[mask_norm > 0.5] = [75, 0, 130] 
-        
-        # Blend
+        overlay[mask_norm > 0.5] = [75, 0, 130]  # Deep Purple (#4B0082)
         cv2.addWeighted(overlay, 0.5, display_proc, 0.5, 0, display_proc)
         
     ax_proc.imshow(display_proc)
@@ -519,52 +466,37 @@ def plot_inference_result(
         
     ax_proc.set_title(proc_title)
     ax_proc.axis('off')
-    
-    # 3. Grad-CAM with Plasma
-    # Resize heatmap
+
     heatmap_resized = cv2.resize(heatmap, (processed_img.shape[1], processed_img.shape[0]))
-    
-    # Normalize Heatmap (0-1)
     heatmap_norm = (heatmap_resized - heatmap_resized.min()) / (heatmap_resized.max() - heatmap_resized.min() + 1e-8)
-    
-    # Background
+
     processed_gray = cv2.cvtColor(processed_img, cv2.COLOR_RGB2GRAY)
-    ax_cam.imshow(processed_gray, cmap='gray') 
-    
-    # Overlay Heatmap
+    ax_cam.imshow(processed_gray, cmap='gray')
     im = ax_cam.imshow(heatmap_norm, cmap='plasma', alpha=0.6)
-    
-    # Title Color Logic
-    theme_colors = ['#4B0082', '#762B98', '#A157AE', '#CC82C4', '#FF8C00']
-    
-    # Find index of predicted class
+
     pred_idx = -1
     if class_names and class_name in class_names:
         pred_idx = class_names.index(class_name)
-    
+
     title_color = 'black'
-    if pred_idx >= 0 and pred_idx < len(theme_colors):
-        title_color = theme_colors[pred_idx]
+    if 0 <= pred_idx < len(THEME_COLORS):
+        title_color = THEME_COLORS[pred_idx]
         
     title = f"Pred: {class_name}\nConf: {confidence:.1%}"
-    
     if true_label:
         status = "Correct" if true_label == class_name else "Incorrect"
         title += f" ({status})"
-            
-    # Set title with the predicted class color
+
     t = ax_cam.set_title(title, fontsize=14, fontweight='bold')
     t.set_color(title_color)
     
     ax_cam.axis('off')
-    
-    # Colorbar
+
     ax_cbar = fig.add_subplot(gs[0, 3])
     plt.colorbar(im, cax=ax_cbar)
-    
-    # 4. Probabilities
+
     if probs is not None and class_names is not None:
-        bars = ax_probs.bar(class_names, probs, color=theme_colors, alpha=0.8)
+        bars = ax_probs.bar(class_names, probs, color=THEME_COLORS, alpha=0.8)
         ax_probs.set_ylim(0, 1.1)
         ax_probs.set_title("Prediction Confidence by Class")
         ax_probs.set_ylabel("Probability")
@@ -579,63 +511,56 @@ def plot_inference_result(
     else:
         ax_probs.axis('off')
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust for suptitle
-
-    # Unique filename based on class and confidence (avoid overwriting)
-    _save_plot(fig, f"Inference_{class_name}_{confidence:.2f}_{np.random.randint(0,1000)}", save_folder)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    _save_plot(fig, f"Inference_{class_name}_{confidence:.2f}_{np.random.randint(0, 1000)}", save_folder)
     return fig
 
 
-def plot_binary_classification_metrics(results_df: pd.DataFrame, 
-                                     save_folder: str = "reports/figures", 
+def plot_binary_classification_metrics(results_df: pd.DataFrame,
+                                     save_folder: str = "evaluation",
                                      title_prefix: str = ""):
-    """
-    Computes and plots binary classification metrics (Healthy vs. Diseased).
+    """Compute and plot binary classification metrics (Healthy vs. Diseased).
+
     Diseased = Class 1-4 (Mild+), Healthy = Class 0 (No DR).
+
+    Args:
+        results_df: DataFrame with ``true``, ``pred``, and optional ``prob_*`` columns.
+        save_folder: Sub-folder under ``reports/figures/``.
+        title_prefix: Prefix prepended to plot titles.
+
+    Returns:
+        Matplotlib figure.
     """
+    logger.info("--- Binary Classification Analysis (Healthy vs. Diseased) ---")
 
-    print("--- Binary Classification Analysis (Healthy vs. Diseased) ---")
-
-    # Binarize labels: 0 -> 0 (Healthy), 1-4 -> 1 (Diseased)
     y_true_bin = (results_df['true'] > 0).astype(int)
     y_pred_bin = (results_df['pred'] > 0).astype(int)
-    
-    # Calculate probability of disease (Sum of probs for classes 1-4)
-    # Check if probability columns exist
+
     prob_cols = [c for c in results_df.columns if c.startswith('prob_')]
     y_prob_bin = None
-    if len(prob_cols) == 5:
-        # P(Diseaset) = 1 - P(No DR) or Sum(P(Mild)...P(Prolif))
-        # Using 1 - P(0) is safer if probs sum to 1
-        if 'prob_0' in results_df.columns:
-             y_prob_bin = 1.0 - results_df['prob_0']
-        else:
-             y_prob_bin = results_df[[c for c in prob_cols if c != 'prob_0']].sum(axis=1)
+    if len(prob_cols) == 5 and 'prob_0' in results_df.columns:
+        y_prob_bin = 1.0 - results_df['prob_0']
 
-    # Metrics
     acc = accuracy_score(y_true_bin, y_pred_bin)
     prec = precision_score(y_true_bin, y_pred_bin, zero_division=0)
-    rec = recall_score(y_true_bin, y_pred_bin, zero_division=0) # Sensitivity
-    spec = recall_score(y_true_bin, y_pred_bin, pos_label=0, zero_division=0) # Specificity
+    rec = recall_score(y_true_bin, y_pred_bin, zero_division=0)   # Sensitivity
+    spec = recall_score(y_true_bin, y_pred_bin, pos_label=0, zero_division=0)  # Specificity
     f1 = f1_score(y_true_bin, y_pred_bin, zero_division=0)
     
-    print(f"Binary Accuracy: {acc:.4f}")
-    print(f"Sensitivity (Recall): {rec:.4f} (Ability to detect disease)")
-    print(f"Specificity: {spec:.4f} (Ability to confirm health)")
-    print(f"Precision: {prec:.4f}")
-    print(f"F1-Score: {f1:.4f}")
+    logger.info(f"Binary Accuracy: {acc:.4f}")
+    logger.info(f"Sensitivity (Recall): {rec:.4f} (Ability to detect disease)")
+    logger.info(f"Specificity: {spec:.4f} (Ability to confirm health)")
+    logger.info(f"Precision: {prec:.4f}")
+    logger.info(f"F1-Score: {f1:.4f}")
 
     if y_prob_bin is not None:
         try:
             auc_score = roc_auc_score(y_true_bin, y_prob_bin)
-            print(f"Binary ROC-AUC: {auc_score:.4f}")
+            logger.info(f"Binary ROC-AUC: {auc_score:.4f}")
         except ValueError:
-            print("Binary ROC-AUC: Undefined (only one class present in y_true)")
+            logger.warning("Binary ROC-AUC: Undefined (only one class present in y_true)")
 
-    # Confusion Matrix for Binary Task & ROC Curve
     cm_bin = confusion_matrix(y_true_bin, y_pred_bin)
-    
-    # Define custom purple colormap to match project theme
     cmap_purple = LinearSegmentedColormap.from_list("custom_purple", ["#fafafa", "#4B0082"])
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
@@ -674,71 +599,56 @@ def plot_binary_classification_metrics(results_df: pd.DataFrame,
     return fig
 
 
-def plot_calibration_curves(y_true, prob_matrix, n_classes=5, save_folder="reports/figures", title_prefix="", n_bins=10):
+def plot_calibration_curves(y_true, prob_matrix, n_classes=5, save_folder="evaluation", title_prefix="", n_bins=10):
+    """Plot calibration curves (reliability diagrams) for each class.
+
+    Args:
+        y_true: Array of true class labels.
+        prob_matrix: (N, n_classes) probability matrix.
+        n_classes: Number of classes.
+        save_folder: Sub-folder under ``reports/figures/``.
+        title_prefix: Prefix prepended to plot titles.
+        n_bins: Number of bins for calibration curve.
+
+    Returns:
+        Matplotlib figure.
     """
-    Plots calibration curves (reliability diagrams) for each class.
-    Checks if predicted probabilities match observed frequencies.
-    """
-    from sklearn.calibration import calibration_curve # Local import
     fig, ax = plt.subplots(figsize=(10, 8))
     
-    colors = ['#4B0082', '#762B98', '#A157AE', '#CC82C4', '#FF8C00']
-    
-    # 1. Plot Per-Class Calibration
     n_classes = prob_matrix.shape[1]
     for i in range(n_classes):
-        # Create binary target for this class (One-vs-Rest)
         y_true_binary = (y_true == i).astype(int)
         prob_class = prob_matrix[:, i]
-        
-        fraction_of_positives, mean_predicted_value = calibration_curve(y_true_binary, prob_class, n_bins=n_bins)
-        
-        ax.plot(mean_predicted_value, fraction_of_positives, "s-", alpha=1.0, linewidth=2, 
-                label=f'Class {i}', color=colors[i % len(colors)])
 
-    # 2. Plot Aggregate (Lumped) Calibration
-    # Flatten all probabilities and outcomes to treat as one large binary problem
+        fraction_of_positives, mean_predicted_value = calibration_curve(y_true_binary, prob_class, n_bins=n_bins)
+
+        ax.plot(mean_predicted_value, fraction_of_positives, "s-", alpha=1.0, linewidth=2,
+                label=f'Class {i}', color=THEME_COLORS[i % len(THEME_COLORS)])
+
+    # Aggregate (lumped) calibration across all classes
     y_true_onehot = np.zeros_like(prob_matrix)
     y_true_onehot[np.arange(len(y_true)), y_true] = 1
     
     all_outcomes = y_true_onehot.flatten()
     all_probs = prob_matrix.flatten()
     
-    # Custom binning to get counts for error bars
-    # We use calibration_curve to get the points, but we need counts for SE
-    # from sklearn.calibration import calibration_curve # Removed redundant import
     prob_true_curve, prob_pred_curve = calibration_curve(all_outcomes, all_probs, n_bins=n_bins, strategy='uniform')
 
-    # To calculate Standard Error, we need sample counts per bin
-    # Re-bin manually to match sklearn's strategy='uniform'
-    # Sklearn calibration_curve bins [0, 1] into n_bins
+    # Manual binning to compute SE per bin
     bins = np.linspace(0.0, 1.0, n_bins + 1)
-    binids = np.digitize(all_probs, bins) - 1
-    # Fix edge case where prob == 1.0 goes to bin n_bins (index n_bins) -> clip to n_bins-1
-    binids = np.clip(binids, 0, n_bins - 1)
-    
+    binids = np.clip(np.digitize(all_probs, bins) - 1, 0, n_bins - 1)
     bin_total = np.bincount(binids, minlength=n_bins)
-    
-    # We only care about bins that have data (mask > 0)
     mask = bin_total > 0
-    
-    # Align our manual binning with sklearn's output
-    # prob_true_curve contains values only for populated bins
+
     if np.sum(mask) == len(prob_true_curve):
-         n = bin_total[mask]
-         # Standard Error = sqrt(p(1-p)/n)
-         se = np.sqrt(prob_true_curve * (1 - prob_true_curve) / n)
-         
-         # Plot line (solid black)
-         ax.plot(prob_pred_curve, prob_true_curve, "o-", color='black', linewidth=3, 
-                 label='All Classes', zorder=10)
-                 
-         # Plot shaded error region
-         ax.fill_between(prob_pred_curve, prob_true_curve - se, prob_true_curve + se, 
-                         color='black', alpha=0.15, zorder=9) # No label to exclude from legend
+        n = bin_total[mask]
+        se = np.sqrt(prob_true_curve * (1 - prob_true_curve) / n)
+        ax.plot(prob_pred_curve, prob_true_curve, "o-", color='black', linewidth=3,
+                label='All Classes', zorder=10)
+        ax.fill_between(prob_pred_curve, prob_true_curve - se, prob_true_curve + se,
+                        color='black', alpha=0.15, zorder=9)
     else:
-         # Fallback if alignment fails (should be rare/impossible with consistent binning)
-         ax.plot(prob_pred_curve, prob_true_curve, "o-", color='black', linewidth=2.5, label='All Classes')
+        ax.plot(prob_pred_curve, prob_true_curve, "o-", color='black', linewidth=2.5, label='All Classes')
 
     # Ideal Line
     ax.plot([0, 1], [0, 1], linestyle="--", color="gray", alpha=0.8, label="Perfectly Calibrated")
@@ -753,11 +663,18 @@ def plot_calibration_curves(y_true, prob_matrix, n_classes=5, save_folder="repor
     return fig
 
 
-def plot_error_distribution(y_true, y_pred, confidences=None, save_folder="reports/figures", title_prefix=""):
-    """
-    Analyzes the magnitude of errors (e.g., Off-by-1 vs Off-by-3).
-    If confidences (array of shape (N,)) are provided, adds a second subplot
-    showing the average confidence for each error magnitude.
+def plot_error_distribution(y_true, y_pred, confidences=None, save_folder="evaluation", title_prefix=""):
+    """Analyze the magnitude of prediction errors.
+
+    Args:
+        y_true: Array of true labels.
+        y_pred: Array of predicted labels.
+        confidences: Optional (N,) array of max-probability confidences.
+        save_folder: Sub-folder under ``reports/figures/``.
+        title_prefix: Prefix prepended to plot titles.
+
+    Returns:
+        Matplotlib figure.
     """
     errors = y_pred - y_true
     unique, counts = np.unique(errors, return_counts=True)
@@ -782,8 +699,6 @@ def plot_error_distribution(y_true, y_pred, confidences=None, save_folder="repor
         fig, ax1 = plt.subplots(figsize=(10, 6))
         ax2 = None
 
-    # --- Plot 1: Count Distribution ---
-    # Aggregate counts for plotting
     err_counts = df_analysis['Error Magnitude'].value_counts().reset_index()
     err_counts.columns = ['Error Magnitude', 'Count']
     # Add Type column back
@@ -810,7 +725,6 @@ def plot_error_distribution(y_true, y_pred, confidences=None, save_folder="repor
     ax1.set_title(f"{title_prefix}Error Magnitude Distribution")
     ax1.grid(axis='y', alpha=0.3)
     
-    # --- Plot 2: Confidence vs Error Magnitude ---
     if ax2 is not None:
         sns.barplot(
             data=df_analysis, 
@@ -826,113 +740,201 @@ def plot_error_distribution(y_true, y_pred, confidences=None, save_folder="repor
         ax2.set_title(f"{title_prefix}Confidence vs. Error Magnitude")
         ax2.set_ylabel("Mean Confidence Score")
         ax2.grid(axis='y', alpha=0.3)
-        # remove legend from second plot if redundant, or keep it
-        ax2.legend_.remove() if ax2.legend_ else None
+        if ax2.legend_:
+            ax2.legend_.remove()
 
     plt.tight_layout()
     _save_plot(fig, f"{title_prefix}error_distribution", save_folder)
     return fig
 
 
-def plot_performance_vs_quality(results_df, manifest_df, quality_col='quality_score', 
-                              save_folder="reports/figures", title_prefix="", n_bins=10, min_samples=50):
+def plot_quality_score_distribution(
+    df: pd.DataFrame,
+    score_col: str = "quality_score",
+    quantile: float = 0.05,
+    save_folder: str = "qc",
+) -> float:
+    """Plot a histogram of image quality scores with a rejection threshold.
+
+    Args:
+        df: DataFrame containing the quality-score column.
+        score_col: Name of the quality-score column.
+        quantile: Percentile for the rejection threshold (e.g. 0.05 = 5th).
+        save_folder: Sub-folder under ``reports/figures/``.
+
+    Returns:
+        Computed threshold value.
     """
-    Plots model accuracy vs image quality with error bars (Standard Error).
-    Uses equally spaced bins for the quality metric.
+    if score_col not in df.columns:
+        logger.warning(f"Column '{score_col}' not found.")
+        return 0.0
+
+    set_plot_style()
+    threshold = df[score_col].quantile(quantile)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.histplot(df[score_col], kde=True, bins=50, color="#4B0082", ax=ax)
+    ax.axvline(
+        threshold, color="#FF8C00", linestyle="--",
+        label=f"{quantile:.0%} Percentile ({threshold:.4f})",
+    )
+    ax.set_title("Distribution of Image Quality Scores (Vessel Density)")
+    ax.set_xlabel("Vessel Density Score")
+    ax.set_ylabel("Count")
+    ax.legend()
+
+    _save_plot(fig, "quality_score_distribution", save_folder)
+    print(f"Suggested Threshold (exclude below): {threshold:.4f}")
+    return threshold
+
+
+def plot_confusion_matrix_pair(
+    y_true,
+    y_pred,
+    class_names: Optional[List[str]] = None,
+    title_prefix: str = "",
+    save_folder: str = "evaluation",
+):
+    """Plot count and row-normalised confusion matrices side by side.
+
+    Args:
+        y_true: Ground-truth labels.
+        y_pred: Predicted labels.
+        class_names: Display names for each class.
+        title_prefix: Prefix prepended to saved filename.
+        save_folder: Sub-folder under ``reports/figures/``.
+
+    Returns:
+        Matplotlib figure.
     """
-    # Merge on image name
+    if class_names is None:
+        class_names = ["No DR", "Mild", "Moderate", "Severe", "Proliferative"]
+
+    set_plot_style()
+
+    cm = confusion_matrix(y_true, y_pred)
+    acc = accuracy_score(y_true, y_pred)
+
+    class_counts = cm.sum(axis=1)
+    yticklabels = [f"{n}\n(n={c})" for n, c in zip(class_names, class_counts)]
+
+    cmap_purple = LinearSegmentedColormap.from_list("custom_purple", ["#fafafa", "#4B0082"])
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+
+    # Count matrix
+    sns.heatmap(
+        cm, annot=True, fmt="d", cmap=cmap_purple,
+        xticklabels=class_names, yticklabels=yticklabels,
+        annot_kws={"weight": "bold"}, ax=ax1,
+    )
+    ax1.set_xlabel("Predicted Label", fontsize=12)
+    ax1.set_ylabel("True Label", fontsize=12)
+    ax1.set_title(f"Confusion Matrix (Acc: {acc:.1%})", fontsize=14)
+
+    # Normalised matrix
+    cm_norm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+    sns.heatmap(
+        cm_norm, annot=True, fmt=".2f", cmap=cmap_purple,
+        xticklabels=class_names, yticklabels=yticklabels,
+        annot_kws={"weight": "bold"}, ax=ax2,
+    )
+    ax2.set_xlabel("Predicted Label", fontsize=12)
+    ax2.set_ylabel("True Label", fontsize=12)
+    ax2.set_title("Normalized Confusion Matrix (Recall)", fontsize=14)
+
+    plt.tight_layout()
+    _save_plot(fig, f"{title_prefix}confusion_matrices", save_folder)
+    return fig
+
+
+def plot_performance_vs_quality(results_df, manifest_df, quality_col='quality_score',
+                              save_folder="evaluation", title_prefix="", n_bins=10, min_samples=50):
+    """Plot model accuracy vs. image quality with error bars.
+
+    Args:
+        results_df: Predictions DataFrame (must contain ``image_name``, ``true``, ``pred``).
+        manifest_df: Manifest DataFrame with a quality score column.
+        quality_col: Name of the quality column in *manifest_df*.
+        save_folder: Sub-folder under ``reports/figures/``.
+        title_prefix: Prefix prepended to plot titles.
+        n_bins: Number of equal-width bins.
+        min_samples: Minimum samples per bin to include.
+
+    Returns:
+        Matplotlib figure or ``None`` if data is insufficient.
+    """
     if 'image_name' not in results_df.columns:
-        logging.error("results_df missing 'image_name' column")
+        logger.error("results_df missing 'image_name' column")
         return None
-        
+
     left_key = 'image_name'
     right_key = 'image' if 'image' in manifest_df.columns else 'image_name'
-    
+
     if right_key not in manifest_df.columns:
-         logging.error(f"manifest_df missing key column {right_key}")
-         return None
+        logger.error(f"manifest_df missing key column {right_key}")
+        return None
 
     merged = pd.merge(results_df, manifest_df, left_on=left_key, right_on=right_key, how='inner')
     
     if merged.empty:
-        logging.warning("Merge result is empty. Check filenames matching.")
+        logger.warning("Merge result is empty. Check filenames matching.")
         return None
-        
-    # Check if quality column exists
+
     if quality_col not in merged.columns:
-        logging.warning(f"Quality column '{quality_col}' not found in merged data.")
+        logger.warning(f"Quality column '{quality_col}' not found in merged data.")
         return None
 
-    # Calculate correctness
     merged['is_correct'] = (merged['true'] == merged['pred']).astype(int)
-
-    # Bin the quality metric (Equal Width Bins)
-    # We use pd.cut for equal intervals in quality space
     merged['quality_bin'] = pd.cut(merged[quality_col], bins=n_bins)
-    
-    # Aggregate statistics
+
     bin_stats = merged.groupby('quality_bin', observed=False).agg({
-        quality_col: 'mean',           # Center of the bin (approx)
-        'is_correct': ['mean', 'count', 'sem'] # Accuracy, N samples, Standard Error
+        quality_col: 'mean',
+        'is_correct': ['mean', 'count', 'sem']
     }).reset_index()
     
-    # Flatten columns
     bin_stats.columns = ['bin', 'mean_qual', 'accuracy', 'count', 'se']
-    
-    # Remove bins with insufficient samples to avoid noise
-    print(f"Total bins: {len(bin_stats)}. Valid bins (>= {min_samples} samples): {len(bin_stats[bin_stats['count'] >= min_samples])}")
+    logger.info(f"Total bins: {len(bin_stats)}. Valid bins (>= {min_samples} samples): {len(bin_stats[bin_stats['count'] >= min_samples])}")
     bin_stats = bin_stats[bin_stats['count'] >= min_samples]
 
     if bin_stats.empty:
-        logging.warning(f"No bins have >= {min_samples} samples. Cannot plot performance vs quality.")
+        logger.warning(f"No bins have >= {min_samples} samples. Cannot plot performance vs quality.")
         return None
 
-    # Create axes
     fig, ax1 = plt.subplots(figsize=(10, 6))
     ax2 = ax1.twinx()
 
-    # 1. Bar Plot for Sample Count (Secondary Y-Axis) - PLOT FIRST (Background)
-    # Calculate width for bars (uniform since we used pd.cut)
     bin_width = (merged[quality_col].max() - merged[quality_col].min()) / n_bins
-    
     ax2.bar(
-        bin_stats['mean_qual'], 
-        bin_stats['count'], 
-        width=bin_width * 0.8, 
-        alpha=1.0,  # Opaque 
-        color='#FF8C00', # Darker Orange
-        label='Sample Count'
+        bin_stats['mean_qual'],
+        bin_stats['count'],
+        width=bin_width * 0.8,
+        alpha=1.0,
+        color='#FF8C00',
+        label='Sample Count',
     )
-    
-    # 2. Error Bar Plot for Accuracy (Primary Y-Axis) - PLOT SECOND (Foreground)
+
     ax1.errorbar(
-        bin_stats['mean_qual'], 
-        bin_stats['accuracy'], 
-        yerr=bin_stats['se'], 
-        fmt='-o', 
-        color='#4B0082', 
-        ecolor='#4B0082', 
-        elinewidth=2, 
-        capsize=4, 
-        linewidth=2, 
-        label='Accuracy ± SE'
+        bin_stats['mean_qual'],
+        bin_stats['accuracy'],
+        yerr=bin_stats['se'],
+        fmt='-o',
+        color='#4B0082',
+        ecolor='#4B0082',
+        elinewidth=2,
+        capsize=4,
+        linewidth=2,
+        label='Accuracy ± SE',
     )
-    
-    # Ensure ax1 (accuracy) is drawn ON TOP of ax2 (bars)
+
+    # Draw accuracy line on top of the bars
     ax1.set_zorder(ax2.get_zorder() + 1)
-    ax1.patch.set_visible(False)  # Make ax1 background transparent so ax2 shows through
-    
-    # Labels & Title
+    ax1.patch.set_visible(False)
     ax1.set_xlabel(f"Image Quality ({quality_col})")
     ax1.set_ylabel("Model Accuracy")
     ax2.set_ylabel("Number of Samples")
     ax1.set_title(f"{title_prefix}Performance vs. Image Quality (Equal Bins)")
     ax1.grid(True, alpha=0.3)
-    
-    # Axis Limits customization
     ax1.set_ylim(0.0, 1.05)
-    
-    # Combine legends
     lines, labels = ax1.get_legend_handles_labels()
     bars, bar_labels = ax2.get_legend_handles_labels()
     ax1.legend(lines + bars, labels + bar_labels, loc='lower right')

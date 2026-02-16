@@ -1,3 +1,11 @@
+"""
+Tests for ImagePreprocessor
+===========================
+
+Verifies the core preprocessing pipeline (crop, resize, Graham's method)
+on synthetic images including edge cases.
+"""
+
 import cv2
 import numpy as np
 import pytest
@@ -39,16 +47,30 @@ def test_crop_works(preprocessor):
     # Create a small white square in a big black image
     img = np.zeros((1000, 1000, 3), dtype=np.uint8)
     img[400:600, 400:600] = 255
-    
+
     # Preprocessor should zoom in on this square and resize it to 512x512
     # So the result should be mostly white
     processed = preprocessor.preprocess(img, enhance_contrast=False)
-    
+
     # Calculate amount of non-black pixels
     non_black = np.sum(processed > 10) / processed.size
-    
+
     # If cropped correctly, the white square (200x200) fills the 512x512 frame significantly more than 4%
     # Original 200x200 is 4% of 1000x1000.
     # If we crop to 200x200 then resize to 512x512, it fills 100% (minus circular mask)
     # Circular mask keeps ~78% of area.
     assert non_black > 0.5
+
+
+def test_all_black_image(preprocessor):
+    """Edge case: all-black image should not crash."""
+    img = np.zeros((512, 512, 3), dtype=np.uint8)
+    processed = preprocessor.preprocess(img, enhance_contrast=False)
+    assert processed.shape == (512, 512, 3)
+
+
+def test_very_small_image(preprocessor):
+    """Edge case: very small image is up-scaled to target size."""
+    img = np.random.randint(0, 255, (16, 16, 3), dtype=np.uint8)
+    processed = preprocessor.preprocess(img, enhance_contrast=False)
+    assert processed.shape == (512, 512, 3)
