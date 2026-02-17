@@ -1,8 +1,8 @@
 # Diabetic Retinopathy Detection with Explainability
 
-![CI/CD Pipeline](https://img.shields.io/github/actions/workflow/status/gmatteuc/Diabetic_retinopathy_detection/ci.yml?branch=main&label=CI%2FCD%20Pipeline&color=000000)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)
+![CI/CD Pipeline](https://img.shields.io/github/actions/workflow/status/gmatteuc/Diabetic_retinopathy_detection/ci.yml?branch=main&label=CI%2FCD%20Pipeline&style=flat-square&color=black)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
+![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg?style=flat-square)
 
 <img src="misc/dataset-cover.jpg" width="800">
 
