@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 
 models: Dict[str, DRPredictor] = {}
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -41,13 +42,15 @@ async def lifespan(app: FastAPI):
     models.clear()
     logger.info("Model unloaded.")
 
+
 # Create FastAPI App
 app = FastAPI(
     title="Diabetic Retinopathy Detection API",
     description="API for detecting diabetic retinopathy from retinal fundus images.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
+
 
 @app.get("/", response_model=HealthResponse)
 async def health_check():
@@ -57,11 +60,8 @@ async def health_check():
     if "predictor" not in models:
         raise HTTPException(status_code=503, detail="Model not initialized")
 
-    return {
-        "status": "healthy",
-        "model_loaded": True,
-        "version": "1.0.0"
-    }
+    return {"status": "healthy", "model_loaded": True, "version": "1.0.0"}
+
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(file: UploadFile = File(...)):
@@ -86,8 +86,10 @@ async def predict(file: UploadFile = File(...)):
 
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

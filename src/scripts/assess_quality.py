@@ -54,7 +54,7 @@ def process_single_image(args: tuple) -> float:
 
         processed = preprocessor.preprocess(img, eye_side=eye_side)
         quality = preprocessor.validate_quality(processed)
-        return quality['vessel_density']
+        return quality["vessel_density"]
 
     except Exception:
         return 0.0
@@ -74,21 +74,21 @@ def assess_manifest_quality(input_manifest_path: Path, output_manifest_path: Pat
     df = pd.read_csv(input_manifest_path)
     logger.info(f"Loaded manifest with {len(df)} images.")
 
-    tasks = list(zip(df['path'], df['eye']))
+    tasks = list(zip(df["path"], df["eye"], strict=True))
     num_workers = max(1, multiprocessing.cpu_count() - 1)
     logger.info(f"Computing Vessel Density Scores using {num_workers} workers...")
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         results = list(tqdm(executor.map(process_single_image, tasks), total=len(tasks)))
 
-    df['quality_score'] = results
+    df["quality_score"] = results
     df.to_csv(output_manifest_path, index=False)
     logger.info(f"Updated manifest saved to {output_manifest_path}")
 
     logger.info("--- Quality Statistics ---")
     logger.info(f"\n{df['quality_score'].describe()}")
 
-    threshold = df['quality_score'].quantile(0.05)
+    threshold = df["quality_score"].quantile(0.05)
     logger.info(f"Suggested exclusion threshold (5th percentile): {threshold:.4f}")
 
 

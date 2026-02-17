@@ -43,7 +43,13 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+select = ["E", "F", "W", "B", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"notebooks/*.ipynb" = ["E402"]
+"tests/*" = ["E402"]
+"src/app/main.py" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

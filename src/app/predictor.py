@@ -26,6 +26,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 class DRPredictor:
     def __init__(self, model_name: str = "efficientnet_b3", device: str = None):
         self.device = torch.device(device if device else ("cuda" if torch.cuda.is_available() else "cpu"))
@@ -139,6 +140,8 @@ class DRPredictor:
             "diagnosis": diagnosis,
             "referral_advised": referral_advised,
             "confidence": confidence,
-            "probabilities": {name: float(p) for name, p in zip(self.class_names, probs)} if probs is not None else {},
+            "probabilities": {name: float(p) for name, p in zip(self.class_names, probs, strict=False)}
+            if probs is not None
+            else {},
             "gradcam_base64": gradcam_b64,
         }

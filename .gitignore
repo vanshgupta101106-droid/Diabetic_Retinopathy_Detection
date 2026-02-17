@@ -33,13 +33,14 @@ env/
 ENV/
 .env
 
-# VS Code
+# IDE & AI tools
 .vscode/
+.claude/
 
 # Project Specific - Large Files
-data/
-models/
-reports/figures/
+/data/
+/models/
+/reports/figures/
 
 # OS generated files
 .DS_Store
