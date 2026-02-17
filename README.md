@@ -78,22 +78,22 @@ The confusion matrix demonstrates strong diagonal performance. The model effecti
   <p><em>Diagnostic Panel: Confusion Matrix (Left) and ROC Curves (Right). The high AUC (>0.90) for endpoints (Class 0 and 4) confirms robust screening capability.</em></p>
 </div>
 
-### 3. Explainability (Inference)
-The Grad-CAM overlays below highlight the regions of interest (ROI) used by the model for different severity levels:
+### 3. Explainability (Grad-CAM)
+To improve interpretability, Grad-CAM was used to visualize the retinal regions contributing most strongly to the model’s predictions. These heatmaps provide qualitative insight into the image features influencing the classification and help assess whether the model relies on clinically meaningful structures.
 
 <div align="center">
   <img src="misc/NoDR.png" width="90%">
-  <p><em><strong>No DR (Class 0)</strong>: The model correctly focuses on the overall healthy vasculature and absence of lesions, predicting "No DR" with high confidence.</em></p>
+  <p><em><strong>No DR (Class 0)</strong>: The Grad-CAM signal is diffuse and mostly emphasizes normal anatomical structures (notably the optic disc and major vessels) without strong focal hotspots, consistent with a high-confidence “No DR” prediction (93.2%).</em></p>
 </div>
 
 <div align="center">
   <img src="misc/Severe.png" width="90%">
-  <p><em><strong>Severe DR (Class 3)</strong>: Here, the heatmap identifies multiple hemorrhages and exudates, correctly classifying the case as "Severe".</em></p>
+  <p><em><strong>Severe DR (Class 3)</strong>: The Grad-CAM map shows a focal hotspot in the superior-temporal retina, suggesting the model is weighting a localized pathological region. The prediction is borderline (Severe 53.8% vs Moderate 42.5%), consistent with a case near the Moderate/Severe decision boundary.</em></p>
 </div>
 
 <div align="center">
   <img src="misc/Proliferative.png" width="90%">
-  <p><em><strong>Proliferative DR (Class 4)</strong>: In this advanced case, the heatmap targets the neovascularization and hemorrhages near the optic disc, confirming "Proliferative" disease.</em></p>
+  <p><em><strong>Proliferative DR (Class 4)</strong>: The Grad-CAM heatmap shows strong activation in the upper retinal region, with broader emphasis across the image. This indicates that the model relies on multiple pathological features rather than a single focal point. The prediction is made with very high confidence (99.8%), consistent with this advanced disease stage.</em></p>
 </div>
 
 ## Project Structure
