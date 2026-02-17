@@ -79,12 +79,21 @@ The confusion matrix demonstrates strong diagonal performance. The model effecti
 </div>
 
 ### 3. Explainability (Inference)
-The Grad-CAM overlay below highlights the regions of interest (ROI) used by the model.
-*In this Proliferative DR case, the heatmap correctly identifies the neovascularization and hemorrhages near the optic disc.*
+The Grad-CAM overlays below highlight the regions of interest (ROI) used by the model for different severity levels:
 
 <div align="center">
-  <img src="misc/inference_severe_0.54_598.png" width="80%">
-  <p><em>Inference in the Wild: EfficientNet-B3 correctly identifying Severe/Proliferative features despite lighting variations.</em></p>
+  <img src="misc/NoDR.png" width="90%">
+  <p><em><strong>No DR (Class 0)</strong>: The model correctly focuses on the overall healthy vasculature and absence of lesions, predicting "No DR" with high confidence.</em></p>
+</div>
+
+<div align="center">
+  <img src="misc/Severe.png" width="90%">
+  <p><em><strong>Severe DR (Class 3)</strong>: Here, the heatmap identifies multiple hemorrhages and exudates, correctly classifying the case as "Severe".</em></p>
+</div>
+
+<div align="center">
+  <img src="misc/Proliferative.png" width="90%">
+  <p><em><strong>Proliferative DR (Class 4)</strong>: In this advanced case, the heatmap targets the neovascularization and hemorrhages near the optic disc, confirming "Proliferative" disease.</em></p>
 </div>
 
 ## Project Structure
