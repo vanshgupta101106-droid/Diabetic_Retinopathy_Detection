@@ -5,6 +5,7 @@ and returns a matplotlib Figure.
 """
 
 import matplotlib
+
 matplotlib.use("Agg")  # Non-interactive backend for CI
 
 import matplotlib.pyplot as plt
@@ -13,13 +14,13 @@ import pandas as pd
 import pytest
 
 from src.visualization.plots import (
-    plot_class_distribution,
-    plot_learning_curves,
-    plot_model_diagnostics,
-    plot_confidence_abstention_panel,
     plot_binary_classification_metrics,
     plot_calibration_curves,
+    plot_class_distribution,
+    plot_confidence_abstention_panel,
     plot_error_distribution,
+    plot_learning_curves,
+    plot_model_diagnostics,
     set_plot_style,
 )
 

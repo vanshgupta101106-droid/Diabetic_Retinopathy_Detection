@@ -6,11 +6,13 @@ Integration tests for the health-check and prediction endpoints
 using mocked model inference.
 """
 
-from fastapi.testclient import TestClient
-import numpy as np
-import cv2
-import pytest
 from unittest.mock import MagicMock
+
+import cv2
+import numpy as np
+import pytest
+from fastapi.testclient import TestClient
+
 from src.app.main import app, models
 
 
@@ -23,7 +25,7 @@ def mock_predictor():
         "confidence": 0.99,
         "probabilities": {"No DR": 0.99, "Mild": 0.01},
         "gradcam_base64": "base64placeholder",
-        "processing_time_ms": 120.5
+        "processing_time_ms": 120.5,
     }
     return predictor
 
@@ -51,12 +53,9 @@ def test_health_check(client):
 
 def test_predict_endpoint_success(client, mock_predictor):
     img = np.zeros((100, 100, 3), dtype=np.uint8)
-    _, encoded_img = cv2.imencode('.jpg', img)
+    _, encoded_img = cv2.imencode(".jpg", img)
 
-    response = client.post(
-        "/predict",
-        files={"file": ("test.jpg", encoded_img.tobytes(), "image/jpeg")}
-    )
+    response = client.post("/predict", files={"file": ("test.jpg", encoded_img.tobytes(), "image/jpeg")})
 
     assert response.status_code == 200
     data = response.json()
@@ -66,8 +65,5 @@ def test_predict_endpoint_success(client, mock_predictor):
 
 
 def test_predict_invalid_file_type(client):
-    response = client.post(
-        "/predict",
-        files={"file": ("test.txt", b"not an image", "text/plain")}
-    )
+    response = client.post("/predict", files={"file": ("test.txt", b"not an image", "text/plain")})
     assert response.status_code == 400

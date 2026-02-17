@@ -16,6 +16,7 @@ class HealthResponse(BaseModel):
     model_loaded: bool
     version: str
 
+
 class PredictionResponse(BaseModel):
     filename: Optional[str] = None
     diagnosis: str

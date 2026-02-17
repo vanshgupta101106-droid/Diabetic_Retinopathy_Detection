@@ -60,9 +60,7 @@ def load_and_show_preprocessing(
     for row in samples:
         img_bgr = cv2.imread(row["path"])
         img_rgb = (
-            cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-            if img_bgr is not None
-            else np.zeros((512, 512, 3), dtype=np.uint8)
+            cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB) if img_bgr is not None else np.zeros((512, 512, 3), dtype=np.uint8)
         )
 
         processed = preprocessor.preprocess(img_rgb, eye_side=row["eye"])
@@ -73,16 +71,23 @@ def load_and_show_preprocessing(
 
     logger.info("Displaying Raw Images...")
     plot_image_grid(
-        raw_imgs, labels, titles=titles,
-        grid_shape=(2, 3), figsize=(12, 10),
-        title="Raw Images (Original)", save_folder=save_folder,
+        raw_imgs,
+        labels,
+        titles=titles,
+        grid_shape=(2, 3),
+        figsize=(12, 10),
+        title="Raw Images (Original)",
+        save_folder=save_folder,
     )
     plt.show()
 
     logger.info("Displaying Processed Images (Graham's Method)...")
     plot_image_grid(
-        proc_imgs, labels, titles=titles,
-        grid_shape=(2, 3), figsize=(12, 10),
+        proc_imgs,
+        labels,
+        titles=titles,
+        grid_shape=(2, 3),
+        figsize=(12, 10),
         title="Processed (Graham's Method + Standardized Orientation)",
         save_folder=save_folder,
     )
@@ -111,9 +116,7 @@ def create_vessel_overlay(
     overlay = processed_img.copy()
     mask_bool = vessel_mask > 0
     color = np.array(overlay_color, dtype=np.float32)
-    overlay[mask_bool] = (
-        (1 - alpha) * overlay[mask_bool] + alpha * color
-    ).astype(np.uint8)
+    overlay[mask_bool] = ((1 - alpha) * overlay[mask_bool] + alpha * color).astype(np.uint8)
     return overlay
 
 
@@ -142,11 +145,13 @@ def show_vessel_density_report(
         mask = preprocessor.extract_vessel_mask(proc_img)
         overlay = create_vessel_overlay(proc_img, mask)
 
-        qc_results.append({
-            "ID": row["patient_id"],
-            "Level": row["level"],
-            "Vessel Density": density,
-        })
+        qc_results.append(
+            {
+                "ID": row["patient_id"],
+                "Level": row["level"],
+                "Vessel Density": density,
+            }
+        )
         qc_images.append(overlay)
         qc_labels.append(row["level"])
         qc_titles.append(f"ID: {row['patient_id']}\nDensity: {density:.3f}")
@@ -159,8 +164,11 @@ def show_vessel_density_report(
         cols = min(n, 3) if n <= 6 else 5
         rows = int(np.ceil(n / cols))
         plot_image_grid(
-            qc_images, qc_labels, titles=qc_titles,
-            grid_shape=(rows, cols), figsize=(4 * cols, 4 * rows + 2),
+            qc_images,
+            qc_labels,
+            titles=qc_titles,
+            grid_shape=(rows, cols),
+            figsize=(4 * cols, 4 * rows + 2),
             title="Quality Check: Vessel Density & Segmentation Map",
             save_folder=save_folder,
         )
@@ -199,11 +207,7 @@ def show_augmentation_verification(
         label = data_item["label"]
 
         display_img = img_tensor.permute(1, 2, 0).numpy()
-        debug_img = (
-            (display_img * 255).astype(np.uint8)
-            if display_img.max() <= 1.0
-            else display_img.copy()
-        )
+        debug_img = (display_img * 255).astype(np.uint8) if display_img.max() <= 1.0 else display_img.copy()
 
         h, w = debug_img.shape[:2]
         cv2.circle(debug_img, (w // 2, h // 2), int(min(h, w) * 0.48), (255, 165, 0), 3)
@@ -214,8 +218,11 @@ def show_augmentation_verification(
 
     logger.info("Plotting Verification Grid...")
     plot_image_grid(
-        images, labels=labels, titles=titles,
-        grid_shape=grid_shape, figsize=(12, 16),
+        images,
+        labels=labels,
+        titles=titles,
+        grid_shape=grid_shape,
+        figsize=(12, 16),
         title="IsotropicAffine Verification (Orange Circle = Perfect Enclosure)",
         save_folder=save_folder,
     )
@@ -270,9 +277,13 @@ def load_and_show_quality_examples(
     cols = 5
     rows = int(np.ceil(len(images) / cols))
     plot_image_grid(
-        images, labels, titles=titles,
-        grid_shape=(rows, cols), figsize=(20, 4 * rows),
-        title=suptitle, save_folder=save_folder,
+        images,
+        labels,
+        titles=titles,
+        grid_shape=(rows, cols),
+        figsize=(20, 4 * rows),
+        title=suptitle,
+        save_folder=save_folder,
     )
     plt.show()
 
@@ -304,9 +315,11 @@ def print_classification_summary(
     f1_weighted = f1_score(y_true, y_pred, average="weighted")
 
     logger.info(
-        "\n" + "=" * 50
+        "\n"
+        + "=" * 50
         + "\n--- Multi-Class Classification Analysis (5 Grades) ---"
-        + "\n" + "=" * 50
+        + "\n"
+        + "=" * 50
         + f"\nOverall Accuracy: {acc:.4f}"
         + f"\nBalanced Accuracy: {balanced_acc:.4f}"
         + f"\nQuadratic Weighted Kappa (QWK): {kappa:.4f} (Key Clinical Metric)"
@@ -361,7 +374,10 @@ def load_and_show_error_samples(
     if images:
         logger.info("Visualizing Error Cases...")
         plot_image_grid(
-            images, labels, preds=preds, titles=titles,
+            images,
+            labels,
+            preds=preds,
+            titles=titles,
             title=f"{model_name} Failure Analysis",
             save_folder=save_folder,
         )
@@ -429,7 +445,8 @@ def test_api_and_visualize(
         + f"\nDiagnosis: {result['diagnosis']}"
         + f"\nConfidence: {result['confidence']:.4f}"
         + f"\nReferral Advised: {result['referral_advised']}"
-        + "\n" + "-" * 50
+        + "\n"
+        + "-" * 50
     )
 
     if result.get("gradcam_base64"):
@@ -443,9 +460,7 @@ def test_api_and_visualize(
         axes[0].axis("off")
 
         axes[1].imshow(gradcam_img)
-        axes[1].set_title(
-            f"API Prediction (Grad-CAM)\n{result['diagnosis']} ({result['confidence']:.2f})"
-        )
+        axes[1].set_title(f"API Prediction (Grad-CAM)\n{result['diagnosis']} ({result['confidence']:.2f})")
         axes[1].axis("off")
 
         plt.tight_layout()

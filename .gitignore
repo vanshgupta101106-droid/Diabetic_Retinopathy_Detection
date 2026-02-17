@@ -33,10 +33,6 @@ env/
 ENV/
 .env
 
-# IDE & AI tools
-.vscode/
-.claude/
-
 # Project Specific - Large Files
 /data/
 /models/

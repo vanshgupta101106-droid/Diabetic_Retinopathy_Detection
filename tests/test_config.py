@@ -1,7 +1,5 @@
 """Tests for src.config."""
 
-from pathlib import Path
-
 from src.config import (
     DATA_DIR,
     MODELS_DIR,
@@ -9,8 +7,8 @@ from src.config import (
     PROJECT_ROOT,
     QUALITY_THRESHOLD,
     REPORTS_DIR,
-    load_config,
     _ensure_dirs,
+    load_config,
 )
 
 

@@ -25,13 +25,15 @@ def sample_df(tmp_path):
         cv2.circle(img, (32, 32), 28, (255, 255, 255), -1)
         path = tmp_path / f"{i}_left.jpeg"
         cv2.imwrite(str(path), img)
-        records.append({
-            "image": f"{i}_left",
-            "path": str(path),
-            "level": i % 5,
-            "eye": "left",
-            "patient_id": str(i),
-        })
+        records.append(
+            {
+                "image": f"{i}_left",
+                "path": str(path),
+                "level": i % 5,
+                "eye": "left",
+                "patient_id": str(i),
+            }
+        )
     return pd.DataFrame(records)
 
 

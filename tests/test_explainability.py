@@ -1,10 +1,10 @@
 """Tests for src.models.explainability."""
 
-import torch
 import pytest
+import torch
 
-from src.models.model import DRModel
 from src.models.explainability import GradCAM, get_target_layer
+from src.models.model import DRModel
 
 
 @pytest.fixture

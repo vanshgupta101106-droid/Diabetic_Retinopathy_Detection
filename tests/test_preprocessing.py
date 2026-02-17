@@ -9,11 +9,14 @@ on synthetic images including edge cases.
 import cv2
 import numpy as np
 import pytest
+
 from src.data.preprocessing import ImagePreprocessor
+
 
 @pytest.fixture
 def preprocessor():
     return ImagePreprocessor(target_size=(512, 512))
+
 
 @pytest.fixture
 def dummy_image():
@@ -22,10 +25,12 @@ def dummy_image():
     cv2.circle(img, (500, 500), 400, (255, 255, 255), -1)
     return img
 
+
 def test_preprocess_output_shape(preprocessor, dummy_image):
     """Test that preprocessor resizes to target shape"""
     processed = preprocessor.preprocess(dummy_image, enhance_contrast=False)
     assert processed.shape == (512, 512, 3)
+
 
 def test_graham_method_produces_contrast(preprocessor, dummy_image):
     """Test standard preprocessing with Graham method"""
@@ -40,7 +45,8 @@ def test_graham_method_produces_contrast(preprocessor, dummy_image):
     # Let's check center pixel
     center_pixel = processed[256, 256]
     # It shouldn't be pure white or black.
-    assert np.any(center_pixel > 10) 
+    assert np.any(center_pixel > 10)
+
 
 def test_crop_works(preprocessor):
     """Test tight cropping around content"""

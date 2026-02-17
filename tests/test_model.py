@@ -6,14 +6,15 @@ Verifies model initialization, forward pass, and head replacement
 for all supported backbone architectures.
 """
 
-import torch
 import pytest
+import torch
+
 from src.models.model import DRModel
 
 
 @pytest.fixture
 def model():
-    return DRModel(model_name='resnet50', num_classes=5, pretrained=False)
+    return DRModel(model_name="resnet50", num_classes=5, pretrained=False)
 
 
 def test_model_forward_pass(model):
@@ -36,13 +37,12 @@ def test_all_supported_architectures(arch):
 
 def test_efficientnet_head_replacement():
     """Test that EfficientNet loads and replaces the head correctly"""
-    model = DRModel(model_name='efficientnet_b3', num_classes=5, pretrained=False)
-    assert model.model_name == 'efficientnet_b3'
+    model = DRModel(model_name="efficientnet_b3", num_classes=5, pretrained=False)
+    assert model.model_name == "efficientnet_b3"
     assert model.backbone.classifier[1].out_features == 5
 
 
 def test_unsupported_model_raises():
     """Unknown architecture names should raise ValueError."""
     with pytest.raises(ValueError):
-        DRModel(model_name='vgg19', num_classes=5, pretrained=False)
-
+        DRModel(model_name="vgg19", num_classes=5, pretrained=False)

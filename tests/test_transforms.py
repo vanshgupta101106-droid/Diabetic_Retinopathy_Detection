@@ -1,11 +1,10 @@
 """Tests for src.data.transforms."""
 
+import albumentations as A
 import numpy as np
 import torch
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
-from src.data.transforms import get_transforms, IsotropicAffineTransform
+from src.data.transforms import IsotropicAffineTransform, get_transforms
 
 
 def _make_synthetic_image(h=512, w=512):
