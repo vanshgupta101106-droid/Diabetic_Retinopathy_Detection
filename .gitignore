@@ -32,6 +32,8 @@ venv/
 env/
 ENV/
 .env
+.venv/
+.pytest_cache/
 
 # Project Specific - Large Files
 /data/

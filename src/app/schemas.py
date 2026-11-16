@@ -25,3 +25,8 @@ class PredictionResponse(BaseModel):
     probabilities: Dict[str, float]
     processing_time_ms: Optional[float] = None
     gradcam_base64: Optional[str] = None
+    preprocessed_base64: Optional[str] = None
+    stage_grade: Optional[int] = None
+    risk_level: Optional[str] = None
+    clinical_recommendation: Optional[str] = None
+    clinical_notes: Optional[str] = None

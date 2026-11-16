@@ -135,12 +135,18 @@ Train the EfficientNet-B3 model (configurations in `configs/default.yaml`):
 python -m src.models.train_model
 ```
 
-### 4. Run API Server
-Launch the FastAPI server locally:
+### 4. Run Interactive Web App & API Server
+Launch the clinical AI dashboard and API:
 ```bash
+# Option A: 1-Click Launcher (Windows)
+.\run.bat
+
+# Option B: Terminal / CLI
 uvicorn src.app.main:app --reload
 ```
-The API docs will be available at `http://localhost:8000/docs`.
+- **Clinical AI Dashboard**: [http://127.0.0.1:8000/ui](http://127.0.0.1:8000/ui) (Interactive 5-tab suite: Diagnostic Studio, Hospital Triage Queue, Model Analytics, Pathology Atlas, and Architecture)
+- **Interactive Swagger Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **Health Check**: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 
 ### 5. Docker Deployment
 The application is containerized for production.
