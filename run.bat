@@ -23,3 +23,4 @@ start "" "http://127.0.0.1:8000/ui"
 echo.
 .\.venv\Scripts\uvicorn.exe src.app.main:app --host 127.0.0.1 --port 8000 --reload
 pause
+

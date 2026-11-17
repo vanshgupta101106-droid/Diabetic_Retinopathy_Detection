@@ -27,13 +27,14 @@ dependencies = [
     "Pillow",
     "requests",
     "python-multipart",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "httpx"]
 
 [project.urls]
-Repository = "https://github.com/gmatteuc/Diabetic_retinopathy_detection"
+Repository = "https://github.com/vanshgupta101106-droid/Diabetic_Retinopathy_Detection"
 
 [tool.setuptools.packages.find]
 include = ["src*"]
@@ -54,3 +55,10 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short -p no:torchtyping"
+filterwarnings = [
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+    "ignore:.*Failed to check for updates.*:UserWarning",
+    "ignore:.*Error fetching version info.*:UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]

@@ -32,10 +32,10 @@ class IsotropicAffineTransform(A.ImageOnlyTransform):
         scale_limit: float = 0.05,
         shift_limit: float = 0.05,
         rotate_limit: float = 360,
-        always_apply: bool = False,
         p: float = 0.5,
+        **kwargs,
     ):
-        super().__init__(always_apply=always_apply, p=p)
+        super().__init__(p=p)
         self.scale_limit = scale_limit
         self.shift_limit = shift_limit
         self.rotate_limit = rotate_limit
@@ -83,12 +83,11 @@ def get_transforms(stage: str = "train", target_size: tuple = (512, 512)) -> A.C
     if stage == "train":
         return A.Compose(
             [
-                A.ShiftScaleRotate(
-                    shift_limit=0.15,
-                    scale_limit=0.2,
-                    rotate_limit=180,
-                    border_mode=cv2.BORDER_CONSTANT,
-                    value=0,
+                A.Affine(
+                    scale=(0.8, 1.2),
+                    translate_percent=(-0.15, 0.15),
+                    rotate=(-180, 180),
+                    cval=0,
                     p=0.8,
                 ),
                 A.HorizontalFlip(p=0.5),

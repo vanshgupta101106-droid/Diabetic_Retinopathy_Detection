@@ -93,7 +93,7 @@ def plot_class_distribution(
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Count plot
-    sns.countplot(x=label_col, data=df, palette=colors, ax=ax)
+    sns.countplot(x=label_col, data=df, hue=label_col, palette=colors, legend=False, ax=ax)
 
     # Add percentages
     total = len(df)
@@ -340,7 +340,8 @@ def plot_model_diagnostics(
     cm_sum = cm.sum(axis=1)
     recall = np.divide(cm_diag, cm_sum, out=np.zeros_like(cm_diag, dtype=float), where=cm_sum != 0)
 
-    sns.barplot(x=np.arange(n_classes), y=recall, ax=ax_bar, palette=colors)
+    x_classes = np.arange(n_classes)
+    sns.barplot(x=x_classes, y=recall, hue=x_classes, ax=ax_bar, palette=colors, legend=False)
     ax_bar.set_ylim(0, 1)
     ax_bar.set_xlabel("Class")
     ax_bar.set_ylabel("Recall (Sensitivity)")

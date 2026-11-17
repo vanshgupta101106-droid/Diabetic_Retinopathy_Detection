@@ -9,7 +9,6 @@ generates Grad-CAM overlays, and returns structured prediction results.
 import base64
 import threading
 from io import BytesIO
-from pathlib import Path
 from typing import Any, Dict, Tuple, Union
 
 import cv2
